@@ -1,14 +1,14 @@
 ---
 name: engineering-workflow
-description: Coordinate repository engineering work from a GitHub Issue through a human-ready pull request. Use for implementation, remediation, or review work that must preserve lifecycle, evidence, and human-merge controls; not for a standalone answer or an isolated edit with no durable work record.
+description: Coordinate feature, bug, refactor, migration, or review work from a GitHub Issue through a human-ready pull request. Use when lifecycle, evidence, and human-merge controls must be preserved; not for a standalone answer or an isolated edit with no durable work record.
 ---
 
 # Engineering workflow
 
-Use this controller to carry one meaningful implementation unit through the
-repository engineering lifecycle. The durable record is the linked GitHub Issue
-and pull request; local context is only working memory. Follow the
-[canonical methodology](../../docs/methodology.md) and
+Use this controller to carry a feature, bug, refactor, migration, or review
+workstream through the repository engineering lifecycle. The durable record is
+the linked GitHub Issue and pull request; local context is only working memory.
+Follow the [canonical methodology](../../docs/methodology.md) and
 [capability contract](../../docs/capability-contract.md).
 
 ## Control contract
