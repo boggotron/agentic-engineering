@@ -32,6 +32,11 @@ commands. Until it does, use the checks that are applicable to the change and
 state unavailable automated checks as `N/A` with a short justification. For
 documentation changes, verify Markdown headings and relative links manually.
 
+Follow the portable [security and autonomy boundaries](docs/security-and-autonomy-boundaries.md).
+In particular, do not expose secrets, bypass required checks or branch
+protection, perform external releases or deployments, or merge a pull request
+without the required human approval.
+
 ## Pull requests
 
 Open or update a pull request only when it links the implementation Issue and

@@ -44,3 +44,5 @@ Follow the lifecycle, isolation, review, verification, and human-approval
 requirements in the [canonical plan](docs/CROSS_PLATFORM_REPO_PLAN.md).
 Use the host's native facilities where available; this repository does not
 provide substitute orchestration, worktree, review, or project-state tooling.
+The shared agent-authority rules, including human-only merge, are canonical in
+the [security and autonomy boundaries](docs/security-and-autonomy-boundaries.md).

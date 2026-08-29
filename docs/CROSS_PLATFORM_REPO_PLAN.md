@@ -561,20 +561,13 @@ Issue: #15
 
 ## 11. Security and autonomy model
 
-The methodology must explicitly define agent authority for:
-
-- destructive shell commands;
-- secrets and credentials;
-- dependency/package installation;
-- network access;
-- GitHub mutations;
-- CI workflow modifications;
-- deployments;
-- releases;
-- branch protection;
-- merge.
-
-The v1 policy is that agents can autonomously perform normal implementation, testing, review, PR creation/update, and CI remediation within repository boundaries, while merge remains human-only. Additional high-impact operations must be explicitly categorized during the security review.
+The portable authority model is canonical in
+[security and autonomy boundaries](security-and-autonomy-boundaries.md). It
+classifies normal implementation, destructive operations, secrets, dependency
+installation, network access, GitHub mutation, CI, deployment, release, branch
+protection, and merge without prescribing host-specific mechanics. In
+particular, agents may carry approved work through PR readiness and scoped CI
+remediation, but merge remains human-only.
 
 Issue: #16
 

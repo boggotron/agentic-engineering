@@ -7,3 +7,5 @@ requirements are canonical in the
 
 Use Claude Code's native capabilities where they satisfy those requirements.
 Do not add a Claude-specific copy of the shared methodology to this file.
+The portable [security and autonomy boundaries](docs/security-and-autonomy-boundaries.md)
+apply without a Claude-specific variation.
