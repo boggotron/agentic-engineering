@@ -1,0 +1,58 @@
+name: Engineering work
+description: Propose a scoped, verifiable engineering change.
+title: "[TYPE] "
+labels:
+  - state:backlog
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Complete each field before implementation. GitHub is the durable work record.
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective and value
+      description: What outcome is needed, and why does it matter?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and non-goals
+      description: State included work, explicitly excluded work, and affected components.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and related work
+      description: List blocking Issues, related PRs, and explicit assumptions.
+    validations:
+      required: true
+  - type: textarea
+    id: decisions
+    attributes:
+      label: Design decisions and risks
+      description: Record consequential alternatives, selected approach, risks, and security/data/migration implications.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Provide testable checkboxes for the required outcome.
+      placeholder: "- [ ] Criterion"
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Tests and verification
+      description: Specify tests, manual checks, CI, and evidence needed for ready-for-human.
+    validations:
+      required: true
+  - type: textarea
+    id: links
+    attributes:
+      label: Related issue or PR
+      description: Add links as work progresses; implementation PRs must link this Issue.
