@@ -14,7 +14,12 @@ on chat history or a local note.
 
 Check dependencies before starting. For the project dependency graph and the
 meaning of lifecycle states, use the [implementation program](docs/CROSS_PLATFORM_REPO_PLAN.md#7-implementation-program-and-dependency-graph)
-and [GitHub Issues state machine](docs/CROSS_PLATFORM_REPO_PLAN.md#4-github-issues-state-machine).
+and the [GitHub workflow state machine](docs/state-machine.md).
+
+Use the Engineering work Issue template for new implementation work. Apply one
+lifecycle label and update it as the work moves through the documented entry and
+exit criteria. When work is blocked, record the specific blocker and its unblock
+condition instead of leaving the state ambiguous.
 
 ## Preparing a change
 
@@ -43,7 +48,7 @@ contains enough evidence for another person to reproduce the result. Include:
 
 Keep the Issue and pull request state current while work progresses. A change
 is ready for a human only after the verification and review requirements in the
-[Definition of Ready for Human](docs/CROSS_PLATFORM_REPO_PLAN.md#definition-of-ready-for-human)
+[ready-for-human gate](docs/state-machine.md#transition-rules)
 are satisfied. Contributors and agents must not merge pull requests.
 
 ## Documentation contributions
