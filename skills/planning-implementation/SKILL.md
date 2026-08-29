@@ -17,6 +17,8 @@ Record the following for every material plan in the durable work record required
 by the project:
 
 - **Goal:** the intended outcome and value.
+- **Status and ownership:** the plan's current lifecycle status and accountable
+  owner.
 - **Scope:** included behavior, systems, and boundaries.
 - **Non-goals:** intentionally excluded work.
 - **Architecture impact:** the affected design, interfaces, and invariants, or
@@ -32,8 +34,8 @@ by the project:
 - **Migration implications:** applicable rollout, compatibility, backfill,
   rollback, or transition effects; otherwise a justified N/A statement.
 - **Tasks:** independently reviewable units, each with its objective, affected
-  components or files, dependencies, acceptance criteria, tests, and
-  verification.
+  components or files, dependencies, accountable owner, current status,
+  acceptance criteria, tests, and verification.
 
 Plans may use a project-approved issue, checklist, planning artifact, or
 equivalent native plan representation, provided all contract fields remain
