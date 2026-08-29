@@ -19,6 +19,8 @@ def package(output: Path) -> None:
     output = output.resolve()
     if output == ADAPTER_ROOT or ADAPTER_ROOT in output.parents:
         raise ValueError("output must not be the adapter directory or one of its children")
+    if output.exists() and not output.is_dir():
+        raise ValueError("output must be a directory when it already exists")
     if output.exists() and any(output.iterdir()):
         raise ValueError("output directory must be new or empty")
     if not SHARED_SKILLS.is_dir():

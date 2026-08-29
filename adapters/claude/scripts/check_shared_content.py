@@ -17,6 +17,24 @@ def skill_files(root: Path) -> dict[Path, bytes]:
     }
 
 
+def coverage(source: dict[Path, bytes], packaged: dict[Path, bytes]) -> tuple[float, float, int, int]:
+    """Return matching file and byte coverage against the canonical source."""
+    matching_paths = source.keys() & packaged.keys()
+    matching_files = sum(source[path] == packaged[path] for path in matching_paths)
+    matching_bytes = sum(
+        len(source[path])
+        for path in matching_paths
+        if source[path] == packaged[path]
+    )
+    source_bytes = sum(len(contents) for contents in source.values())
+    return (
+        matching_files / len(source) * 100,
+        matching_bytes / source_bytes * 100,
+        matching_files,
+        matching_bytes,
+    )
+
+
 def main() -> int:
     source = skill_files(SHARED_SKILLS)
     if not source:
@@ -28,21 +46,14 @@ def main() -> int:
         package(output)
         packaged = skill_files(output / "skills")
 
-    matching_paths = source.keys() & packaged.keys()
-    matching_bytes = sum(
-        len(source[path])
-        for path in matching_paths
-        if source[path] == packaged[path]
-    )
+    file_coverage, byte_coverage, matching_files, matching_bytes = coverage(source, packaged)
     source_bytes = sum(len(contents) for contents in source.values())
-    file_coverage = len(matching_paths) / len(source) * 100
-    byte_coverage = matching_bytes / source_bytes * 100
 
-    if source.keys() != packaged.keys() or byte_coverage < 90:
+    if source.keys() != packaged.keys() or file_coverage < 90 or byte_coverage < 90:
         print(
             "FAIL: shared content coverage "
             f"{file_coverage:.1f}% files, {byte_coverage:.1f}% bytes "
-            f"({len(matching_paths)}/{len(source)} Skills)",
+            f"({matching_files}/{len(source)} Skills)",
             file=sys.stderr,
         )
         return 1
