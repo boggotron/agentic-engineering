@@ -1,0 +1,32 @@
+{
+  "name": "agentic-engineering",
+  "version": "0.1.0",
+  "description": "Portable agentic-engineering methodology Skills for Codex and ChatGPT.",
+  "author": {
+    "name": "agentic-engineering contributors",
+    "url": "https://github.com/boggotron/agentic-engineering"
+  },
+  "homepage": "https://github.com/boggotron/agentic-engineering/tree/main/adapters/openai",
+  "repository": "https://github.com/boggotron/agentic-engineering",
+  "keywords": [
+    "agentic-engineering",
+    "codex",
+    "chatgpt",
+    "skills"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Agentic Engineering",
+    "shortDescription": "Portable engineering workflow Skills.",
+    "longDescription": "A skills-only OpenAI adapter for the shared agentic-engineering methodology.",
+    "developerName": "agentic-engineering contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Skills"
+    ],
+    "websiteURL": "https://github.com/boggotron/agentic-engineering",
+    "defaultPrompt": [
+      "Use the engineering workflow to prepare this issue for implementation."
+    ]
+  }
+}
