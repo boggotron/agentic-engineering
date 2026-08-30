@@ -17,7 +17,44 @@ def load_json(path: Path) -> Any:
         raise ValueError(f"cannot read JSON from {path}: {error}") from error
 
 
+def catalog_by_id(catalog: Any) -> tuple[dict[str, dict[str, Any]], float]:
+    """Validate the portable rubric before accepting any observations."""
+    if not isinstance(catalog, dict):
+        raise ValueError("scenario catalog must be a JSON object")
+    raw_target = catalog.get("target_semantic_pass_rate")
+    if isinstance(raw_target, bool) or not isinstance(raw_target, (int, float)) or not 0 <= raw_target <= 100:
+        raise ValueError("scenario catalog target_semantic_pass_rate must be a number from 0 through 100")
+    items = catalog.get("scenarios")
+    if not isinstance(items, list) or not items:
+        raise ValueError("scenario catalog must contain a non-empty scenarios list")
+
+    scenarios: dict[str, dict[str, Any]] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("every catalog scenario must be an object")
+        scenario_id = item.get("id")
+        if not isinstance(scenario_id, str) or not scenario_id:
+            raise ValueError("every catalog scenario must have a non-empty string id")
+        if scenario_id in scenarios:
+            raise ValueError(f"duplicate catalog scenario: {scenario_id}")
+        checks = item.get("semantic_checks")
+        if not isinstance(checks, list) or not checks:
+            raise ValueError(f"{scenario_id}: semantic_checks must be a non-empty list")
+        check_ids: set[str] = set()
+        for check in checks:
+            check_id = check.get("id") if isinstance(check, dict) else None
+            if not isinstance(check_id, str) or not check_id:
+                raise ValueError(f"{scenario_id}: every semantic check must have a non-empty string id")
+            if check_id in check_ids:
+                raise ValueError(f"{scenario_id}: duplicate semantic check: {check_id}")
+            check_ids.add(check_id)
+        scenarios[scenario_id] = item
+    return scenarios, float(raw_target)
+
+
 def score(scenarios: dict[str, dict[str, Any]], results: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(results, dict):
+        raise ValueError("results must be a JSON object")
     observations = results.get("observations")
     if not isinstance(observations, list):
         raise ValueError("results must contain an observations list")
@@ -70,12 +107,11 @@ def main() -> int:
     args = parser.parse_args()
     try:
         catalog = load_json(args.scenarios)
-        scenarios = {item["id"]: item for item in catalog["scenarios"]}
+        scenarios, target = catalog_by_id(catalog)
         report = score(scenarios, load_json(args.results))
+        passed = report["semantic"]["pass_rate"] >= target
     except (KeyError, TypeError, ValueError) as error:
         parser.error(str(error))
-    target = float(catalog["target_semantic_pass_rate"])
-    passed = report["semantic"]["pass_rate"] >= target
     report["target_semantic_pass_rate"] = target
     report["passed"] = passed
     if args.json:
