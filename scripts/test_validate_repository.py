@@ -58,15 +58,32 @@ class ValidatorTests(unittest.TestCase):
             self.assertIn("broken link", result.stderr)
             self.assertIn("invalid JSON", result.stderr)
 
-    def test_runs_future_eval_entry_point_when_present(self) -> None:
+    def test_runs_issue_14_harness_and_propagates_failure(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             create_repository(root)
-            (root / "evals").mkdir()
-            (root / "evals" / "run_evals.py").write_text("raise SystemExit(1)\n", encoding="utf-8")
+            (root / "evals" / "examples").mkdir(parents=True)
+            results = root / "evals" / "examples" / "compliant.json"
+            results.write_text("{}\n", encoding="utf-8")
+            (root / "evals" / "test_run.py").write_text(
+                "import unittest\n\nclass HarnessTests(unittest.TestCase):\n    def test_contract(self):\n        self.assertTrue(True)\n",
+                encoding="utf-8",
+            )
+            runner = root / "evals" / "run.py"
+            runner.write_text(
+                "import json\nimport sys\nfrom pathlib import Path\nPath(__file__).with_name('arguments.json').write_text(json.dumps(sys.argv[1:]))\n",
+                encoding="utf-8",
+            )
+            successful = validate(root)
+            self.assertEqual(successful.returncode, 0, successful.stderr)
+            self.assertEqual(
+                json.loads((root / "evals" / "arguments.json").read_text()),
+                ["--results", str(results.resolve()), "--json"],
+            )
+            runner.write_text("raise SystemExit(1)\n", encoding="utf-8")
             result = validate(root)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("evals/run_evals.py failed", result.stderr)
+            self.assertIn("evals/run.py failed", result.stderr)
 
     def test_rejects_invalid_future_schema(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -77,6 +94,18 @@ class ValidatorTests(unittest.TestCase):
             result = validate(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("schemas/plan.schema.json: invalid JSON", result.stderr)
+
+    def test_rejects_malformed_yaml_front_matter(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            create_repository(root)
+            (root / "skills" / "example-skill" / "SKILL.md").write_text(
+                "---\nname: example-skill\ndescription: [unterminated\n---\n",
+                encoding="utf-8",
+            )
+            result = validate(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("invalid value for 'description'", result.stderr)
 
 
 if __name__ == "__main__":

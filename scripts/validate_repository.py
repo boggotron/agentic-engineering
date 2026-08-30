@@ -21,6 +21,7 @@ from urllib.parse import unquote, urlparse
 SKILL_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
+YAML_FIELD = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):(?:[ \t]+(.*))?$")
 
 
 @dataclass
@@ -39,6 +40,59 @@ def read_json(path: Path, validation: Validation) -> object | None:
         return None
 
 
+def parse_yaml_scalar(value: str) -> str:
+    """Parse the flat scalar subset used by portable Skill front matter.
+
+    Skills intentionally use a flat mapping of scalar metadata.  Parsing that
+    subset here keeps validation dependency-free while rejecting malformed YAML
+    rather than extracting fields with a regular expression.
+    """
+    if not value or value.startswith(("[", "{", "- ", "|", ">", "&", "*", "!")):
+        raise ValueError("expected a non-empty scalar value")
+    if value[0] in "'\"":
+        quote = value[0]
+        escaped = False
+        for index, character in enumerate(value[1:], 1):
+            if quote == '"' and character == "\\" and not escaped:
+                escaped = True
+                continue
+            if character == quote and not escaped:
+                if value[index + 1 :].strip() and not value[index + 1 :].lstrip().startswith("#"):
+                    raise ValueError("unexpected content after quoted scalar")
+                return value[1:index]
+            escaped = False
+        raise ValueError("unterminated quoted scalar")
+    if any(character in value for character in "[]{}"):
+        raise ValueError("flow collections are not supported in Skill front matter")
+    return value.split(" #", 1)[0].rstrip()
+
+
+def parse_skill_front_matter(path: Path) -> dict[str, str]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if not lines or lines[0] != "---":
+        raise ValueError("missing YAML front matter")
+    try:
+        end = lines.index("---", 1)
+    except ValueError as error:
+        raise ValueError("unterminated YAML front matter") from error
+
+    fields: dict[str, str] = {}
+    for number, line in enumerate(lines[1:end], 2):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        match = YAML_FIELD.fullmatch(line)
+        if not match:
+            raise ValueError(f"invalid YAML mapping on line {number}")
+        key, raw_value = match.groups()
+        if key in fields:
+            raise ValueError(f"duplicate YAML key '{key}' on line {number}")
+        try:
+            fields[key] = parse_yaml_scalar(raw_value or "")
+        except ValueError as error:
+            raise ValueError(f"invalid value for '{key}' on line {number}: {error}") from error
+    return fields
+
+
 def validate_skills(root: Path, validation: Validation) -> None:
     skills = root / "skills"
     if not skills.is_dir():
@@ -53,20 +107,11 @@ def validate_skills(root: Path, validation: Validation) -> None:
         if not path.is_file():
             validation.fail(f"{path.relative_to(root)}: missing SKILL.md")
             continue
-        lines = path.read_text(encoding="utf-8").splitlines()
-        if not lines or lines[0] != "---":
-            validation.fail(f"{path.relative_to(root)}: missing YAML front matter")
-            continue
         try:
-            end = lines.index("---", 1)
-        except ValueError:
-            validation.fail(f"{path.relative_to(root)}: unterminated YAML front matter")
+            fields = parse_skill_front_matter(path)
+        except (OSError, UnicodeDecodeError, ValueError) as error:
+            validation.fail(f"{path.relative_to(root)}: {error}")
             continue
-        fields: dict[str, str] = {}
-        for line in lines[1:end]:
-            key, separator, value = line.partition(":")
-            if separator and key in {"name", "description"}:
-                fields[key] = value.strip().strip('"').strip("'")
         name = fields.get("name", "")
         if not SKILL_NAME.fullmatch(name):
             validation.fail(f"{path.relative_to(root)}: front-matter name must be kebab-case")
@@ -166,10 +211,34 @@ def run_package_checks(root: Path, validation: Validation) -> None:
 
 
 def run_evals(root: Path, validation: Validation) -> None:
-    """Run the optional harness once Issue #14 supplies its stable entry point."""
-    script = root / "evals" / "run_evals.py"
-    if script.is_file():
-        run_python(root, script, validation)
+    """Run Issue #14's stable harness and its compliant representative fixture."""
+    script = root / "evals" / "run.py"
+    if not script.is_file():
+        return
+    results = root / "evals" / "examples" / "compliant.json"
+    tests = root / "evals" / "test_run.py"
+    if not results.is_file():
+        validation.fail("evals/run.py exists but evals/examples/compliant.json is missing")
+        return
+    if not tests.is_file():
+        validation.fail("evals/run.py exists but evals/test_run.py is missing")
+        return
+    result = subprocess.run(
+        [sys.executable, "-m", "unittest", str(tests.relative_to(root))],
+        cwd=root,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode:
+        validation.fail(f"evals/test_run.py failed ({result.returncode}): {(result.stdout + result.stderr).strip()}")
+    result = subprocess.run(
+        [sys.executable, str(script), "--results", str(results), "--json"],
+        cwd=root,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode:
+        validation.fail(f"evals/run.py failed ({result.returncode}): {(result.stdout + result.stderr).strip()}")
 
 
 def main() -> int:
