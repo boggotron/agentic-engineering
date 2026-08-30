@@ -1,29 +1,40 @@
 # ChatGPT host guide
 
-The OpenAI adapter supplies the same portable Skills to ChatGPT as it does to
+The OpenAI adapter is the supported shared-Skills distribution for ChatGPT and
 Codex. It changes neither the engineering lifecycle nor the authority boundary:
 GitHub Issues, pull requests, reviews, and CI remain the durable work record,
 and human approval and merge remain mandatory.
 
-## Access the shared Skills
+## Install and verify the shared Skills
 
-The repository's OpenAI distribution is a skills-only local plugin in
-[`adapters/openai`](../../adapters/openai/). Its documented installation path
-uses the Codex plugin CLI; follow the [OpenAI adapter installation guide](../../adapters/openai/INSTALL.md)
-from a complete repository checkout, then start a new ChatGPT work thread so
-the host can load the newly installed Skills.
+The local plugin is in [`adapters/openai`](../../adapters/openai/). Keep a
+complete repository checkout: its `skills` directory is a relative symbolic
+link to the canonical repository-level `skills/` directory, so copying only
+`adapters/openai/` is unsupported.
 
-The adapter relies on a relative symbolic link to the canonical `skills/`
-directory. Do not copy only `adapters/openai/` as an installation artifact.
-It includes no MCP server, hooks, apps, credentials, orchestration service, or
-project-state database. MCP and hooks are intentionally future-only rather
-than prerequisites for a ChatGPT workflow.
+The supported installation route is the Codex plugin CLI. Substitute the
+absolute path to this checkout's `adapters/openai` directory for
+`<adapter-path>`:
+
+```sh
+codex plugin marketplace add <adapter-path>
+codex plugin list --marketplace agentic-engineering --available
+codex plugin add agentic-engineering@agentic-engineering
+codex plugin list --marketplace agentic-engineering
+```
+
+The available-plugin listing must include `agentic-engineering`; after the add
+command, the marketplace listing must mark it installed. Start a new ChatGPT
+work thread after that installation and use `engineering-workflow` for an
+Issue-based workstream. The full clean-install and removal procedure is in the
+[OpenAI adapter installation guide](../../adapters/openai/INSTALL.md).
+
+The adapter contains Skills only. It includes no MCP server, hooks, apps,
+credentials, orchestration service, or project-state database. MCP and hooks
+are intentionally future-only rather than prerequisites for a ChatGPT
+workflow.
 
 ## Run a durable workflow
-
-Use `engineering-workflow` for a feature, bug, refactor, migration, or review
-workstream with a linked GitHub Issue. It routes to a focused Skill for the
-current stage instead of loading every Skill at once.
 
 1. Read the Issue and identify scope, non-goals, dependency state, acceptance
    criteria, verification, and blockers.
@@ -44,7 +55,8 @@ current stage instead of loading every Skill at once.
 Use the [capability contract](../capability-contract.md) for fallback choices,
 the [state machine](../state-machine.md) for lifecycle state, and the
 [security and autonomy boundaries](../security-and-autonomy-boundaries.md) for
-approval requirements.
+approval requirements. The [workflow examples](../workflow-examples.md) show
+the same durable flow for feature, debugging, and review work.
 
 ## ChatGPT capability limits
 

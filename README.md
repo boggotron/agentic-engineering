@@ -54,7 +54,8 @@ conversation and local plans are not. For every material workstream:
 
 See the [GitHub workflow state machine](docs/state-machine.md),
 [security and autonomy boundaries](docs/security-and-autonomy-boundaries.md),
-and [contribution guide](CONTRIBUTING.md) for the complete requirements.
+[contribution guide](CONTRIBUTING.md), and [workflow examples](docs/workflow-examples.md)
+for the complete requirements.
 
 ## Repository layout
 

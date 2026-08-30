@@ -48,6 +48,8 @@ installation checks are in the [OpenAI adapter installation guide](../../adapter
 The [workflow state machine](../state-machine.md) defines the durable GitHub
 states, and the [security and autonomy boundaries](../security-and-autonomy-boundaries.md)
 define what actions require human approval.
+See the [workflow examples](../workflow-examples.md) for concise feature,
+debugging, and review paths.
 
 ## Verify an adapter change
 
