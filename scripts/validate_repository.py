@@ -43,25 +43,12 @@ def read_json(path: Path, validation: Validation) -> object | None:
 def parse_yaml_scalar(value: str) -> str:
     """Parse the flat scalar subset used by portable Skill front matter.
 
-    Skills intentionally use a flat mapping of scalar metadata.  Parsing that
-    subset here keeps validation dependency-free while rejecting malformed YAML
-    rather than extracting fields with a regular expression.
+    Skills intentionally use a flat mapping of unquoted plain scalar metadata.
+    Parsing that subset here keeps validation dependency-free while rejecting
+    malformed YAML rather than extracting fields with a regular expression.
     """
-    if not value or value.startswith(("[", "{", "- ", "|", ">", "&", "*", "!")):
+    if not value or value.startswith(("[", "{", "- ", "|", ">", "&", "*", "!", "'", '"')):
         raise ValueError("expected a non-empty scalar value")
-    if value[0] in "'\"":
-        quote = value[0]
-        escaped = False
-        for index, character in enumerate(value[1:], 1):
-            if quote == '"' and character == "\\" and not escaped:
-                escaped = True
-                continue
-            if character == quote and not escaped:
-                if value[index + 1 :].strip() and not value[index + 1 :].lstrip().startswith("#"):
-                    raise ValueError("unexpected content after quoted scalar")
-                return value[1:index]
-            escaped = False
-        raise ValueError("unterminated quoted scalar")
     if any(character in value for character in "[]{}"):
         raise ValueError("flow collections are not supported in Skill front matter")
     return value.split(" #", 1)[0].rstrip()

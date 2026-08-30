@@ -107,6 +107,18 @@ class ValidatorTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("invalid value for 'description'", result.stderr)
 
+    def test_rejects_quoted_yaml_with_invalid_escape(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            create_repository(root)
+            (root / "skills" / "example-skill" / "SKILL.md").write_text(
+                '---\nname: example-skill\ndescription: "bad \\q"\n---\n',
+                encoding="utf-8",
+            )
+            result = validate(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("invalid value for 'description'", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
