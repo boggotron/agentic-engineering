@@ -31,6 +31,11 @@ commits, pushes, PR updates, and CI remediation when authorized by their host an
 repository policy. Agents MUST NOT merge a PR. Merge requires explicit human
 approval after the work is ready for human review.
 
+The [security and autonomy boundaries](security-and-autonomy-boundaries.md)
+classify which actions may be autonomous, which need human approval, and the
+safeguards for destructive operations, secrets, external effects, and GitHub
+controls. Those boundaries apply equally to every host adapter.
+
 ## Invariants
 
 1. **Native first.** Before adding orchestration or infrastructure, an agent MUST
