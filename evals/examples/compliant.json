@@ -1,0 +1,14 @@
+{
+  "observations": [
+    {"scenario": "ambiguous-feature-design", "semantic": {"resolve-or-record-ambiguity": true, "design-before-write-heavy-work": true, "durable-plan": true}, "host_mechanics": {"planning": "native"}},
+    {"scenario": "trivial-task-proportionate-planning", "semantic": {"proportionate-scope": true, "focused-change": true, "verify-and-record": true}, "host_mechanics": {"planning": "lightweight"}},
+    {"scenario": "deterministic-bug-regression", "semantic": {"reproduce-failure": true, "regression-test": true, "relevant-verification": true}, "host_mechanics": {"testing": "project runner"}},
+    {"scenario": "difficult-debugging", "semantic": {"evidence-driven-hypotheses": true, "controlled-investigation": true, "no-unverified-completion": true}, "host_mechanics": {"investigation": "tracing"}},
+    {"scenario": "parallelizable-research", "semantic": {"identify-independence": true, "bounded-handoffs": true, "synthesize-evidence": true}, "host_mechanics": {"agents": "subagents"}},
+    {"scenario": "conflicting-write-heavy-work", "semantic": {"detect-write-conflict": true, "isolate-or-serialize": true, "integration-verification": true}, "host_mechanics": {"isolation": "worktrees"}},
+    {"scenario": "review-only-request", "semantic": {"preserve-review-scope": true, "independent-context": true, "actionable-evidence": true}, "host_mechanics": {"review": "fresh context"}},
+    {"scenario": "completion-without-evidence", "semantic": {"reject-unsupported-completion": true, "identify-required-evidence": true, "human-merge-boundary": true}, "host_mechanics": {"verification": "manual"}},
+    {"scenario": "native-worktrees", "semantic": {"detect-native-capability": true, "prefer-native-capability": true, "full-lifecycle-evidence": true}, "host_mechanics": {"isolation": "managed worktree"}},
+    {"scenario": "without-native-isolation", "semantic": {"detect-native-limit": true, "narrow-safe-fallback": true, "no-custom-manager": true}, "host_mechanics": {"isolation": "dedicated branch"}}
+  ]
+}

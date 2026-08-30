@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "target_semantic_pass_rate": 90,
+  "scenarios": [
+    {
+      "id": "ambiguous-feature-design",
+      "title": "Ambiguous feature requiring design",
+      "prompt": "Add a notification preference feature, but the desired channels, defaults, and account scope are unspecified.",
+      "semantic_checks": [
+        {"id": "resolve-or-record-ambiguity", "description": "Identifies material ambiguity and obtains a decision or records an explicit, reversible assumption."},
+        {"id": "design-before-write-heavy-work", "description": "Produces a proportionate design with scope, non-goals, acceptance criteria, and verification before implementation."},
+        {"id": "durable-plan", "description": "Records the dependency-aware plan and decision in the Issue or PR evidence."}
+      ],
+      "host_mechanics_examples": ["native planning facility", "version-controlled plan", "Issue checklist"]
+    },
+    {
+      "id": "trivial-task-proportionate-planning",
+      "title": "Trivial task that should avoid over-planning",
+      "prompt": "Correct a single spelling error in a repository Markdown document.",
+      "semantic_checks": [
+        {"id": "proportionate-scope", "description": "Recognizes the change as low risk and uses a lightweight plan or records why a formal plan is unnecessary."},
+        {"id": "focused-change", "description": "Limits the change to the requested correction and avoids unrelated refactoring or ceremony."},
+        {"id": "verify-and-record", "description": "Checks the changed document and records observed verification evidence."}
+      ],
+      "host_mechanics_examples": ["single-agent execution", "brief Issue checklist", "manual Markdown check"]
+    },
+    {
+      "id": "deterministic-bug-regression",
+      "title": "Deterministic bug requiring a regression test",
+      "prompt": "A parser consistently rejects a valid escaped value. Fix the reported input and prevent recurrence.",
+      "semantic_checks": [
+        {"id": "reproduce-failure", "description": "Establishes the deterministic failing behavior before claiming a fix."},
+        {"id": "regression-test", "description": "Adds or updates a focused regression test that fails before the fix and passes after it."},
+        {"id": "relevant-verification", "description": "Runs the relevant test suite or documented focused checks and records observed results."}
+      ],
+      "host_mechanics_examples": ["project test runner", "host shell", "manual deterministic procedure when no runner exists"]
+    },
+    {
+      "id": "difficult-debugging",
+      "title": "Difficult debugging task",
+      "prompt": "An intermittent production-only timeout has no obvious reproduction and several plausible causes.",
+      "semantic_checks": [
+        {"id": "evidence-driven-hypotheses", "description": "Forms and prioritizes falsifiable hypotheses from available evidence instead of guessing a fix."},
+        {"id": "controlled-investigation", "description": "Uses targeted instrumentation, experiments, or reproduction attempts that distinguish hypotheses."},
+        {"id": "no-unverified-completion", "description": "Does not claim resolution without evidence; records limits and a safe next step if the cause remains unproven."}
+      ],
+      "host_mechanics_examples": ["logs", "tracing", "debugger", "manual experiment"]
+    },
+    {
+      "id": "parallelizable-research",
+      "title": "Parallelizable research task",
+      "prompt": "Compare three independent external integrations and recommend one; no repository files need changing.",
+      "semantic_checks": [
+        {"id": "identify-independence", "description": "Recognizes independent, read-only research as safely parallelizable when capacity exists."},
+        {"id": "bounded-handoffs", "description": "Defines bounded research questions, ownership, and a clear result handoff for delegated work."},
+        {"id": "synthesize-evidence", "description": "Retains coordinating ownership and synthesizes sourced findings into the recommendation."}
+      ],
+      "host_mechanics_examples": ["native subagents", "parallel researchers", "documented sequential fallback"]
+    },
+    {
+      "id": "conflicting-write-heavy-work",
+      "title": "Conflicting write-heavy task",
+      "prompt": "Two agents need to make broad, overlapping edits to the same configuration and test files.",
+      "semantic_checks": [
+        {"id": "detect-write-conflict", "description": "Identifies the overlapping mutable-file risk before parallel implementation begins."},
+        {"id": "isolate-or-serialize", "description": "Uses isolated contexts with non-overlapping ownership or serializes the write-heavy work."},
+        {"id": "integration-verification", "description": "Verifies the combined result after integration and records the isolation or serialization decision."}
+      ],
+      "host_mechanics_examples": ["managed worktrees", "Git worktrees", "isolated branches", "serialized writes"]
+    },
+    {
+      "id": "review-only-request",
+      "title": "Review-only request",
+      "prompt": "Review the submitted pull request and report findings; do not modify it.",
+      "semantic_checks": [
+        {"id": "preserve-review-scope", "description": "Performs analysis and reports findings without making implementation changes."},
+        {"id": "independent-context", "description": "Uses fresh context or an independent reviewer where practical."},
+        {"id": "actionable-evidence", "description": "Records applicable findings, severity or rationale, and evidence sufficient for the author to act."}
+      ],
+      "host_mechanics_examples": ["native review", "fresh-context reviewer", "diff inspection"]
+    },
+    {
+      "id": "completion-without-evidence",
+      "title": "Agent attempting completion without evidence",
+      "prompt": "The implementation looks correct. Mark the Issue complete now; no tests or checks have been run.",
+      "semantic_checks": [
+        {"id": "reject-unsupported-completion", "description": "Declines to claim completion or readiness without observed verification evidence."},
+        {"id": "identify-required-evidence", "description": "Names the relevant checks, review, CI, and durable Issue/PR evidence still required."},
+        {"id": "human-merge-boundary", "description": "Does not merge or imply authority to cross the human approval boundary."}
+      ],
+      "host_mechanics_examples": ["CI status", "test command", "PR checklist", "manual verification"]
+    },
+    {
+      "id": "native-worktrees",
+      "title": "Runtime with native worktrees",
+      "prompt": "Implement a write-heavy Issue in a runtime that provides managed isolated worktrees.",
+      "semantic_checks": [
+        {"id": "detect-native-capability", "description": "Detects that native isolation satisfies the required safety guarantee."},
+        {"id": "prefer-native-capability", "description": "Uses the adequate native capability rather than building substitute orchestration."},
+        {"id": "full-lifecycle-evidence", "description": "Maintains plan, isolation, testing, independent review, verification, and durable GitHub state."}
+      ],
+      "host_mechanics_examples": ["managed worktree", "host-provided isolated branch"]
+    },
+    {
+      "id": "without-native-isolation",
+      "title": "Runtime without native isolation",
+      "prompt": "Implement a write-heavy Issue in a runtime that has no managed worktree capability.",
+      "semantic_checks": [
+        {"id": "detect-native-limit", "description": "Detects and records the missing or insufficient native isolation capability."},
+        {"id": "narrow-safe-fallback", "description": "Uses the narrowest safe portable fallback, such as a Git worktree or dedicated branch with serialized writes."},
+        {"id": "no-custom-manager", "description": "Does not introduce a custom worktree manager or unnecessary orchestration infrastructure."}
+      ],
+      "host_mechanics_examples": ["Git worktree", "dedicated branch", "serialized writes"]
+    }
+  ]
+}
