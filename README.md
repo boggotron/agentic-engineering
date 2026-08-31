@@ -1,9 +1,10 @@
 # agentic-engineering
 
-Portable Agent Skills for carrying repository work from a GitHub Issue to a
-human-ready pull request. The Skills preserve a common engineering lifecycle
-across Codex, ChatGPT, and Claude Code while letting each host use its native
-planning, delegation, isolation, review, Git, and testing capabilities.
+A portable engineering methodology for taking repository work from a GitHub
+Issue to a human-ready pull request. It is delivered as nine shared Agent
+Skills with thin Codex/ChatGPT and Claude Code adapters. The Skills preserve a
+common lifecycle while each host uses its own planning, delegation, isolation,
+review, Git, and testing capabilities.
 
 ## What this provides
 
@@ -17,13 +18,67 @@ The canonical [`skills/`](skills/) directory contains nine focused Skills:
 - `reviewing-changes`, `verifying-completion`, and `finishing-work` —
   independent review and evidence-based completion.
 
-The repository deliberately distributes thin adapters, not a replacement
-orchestration system. The OpenAI adapter is a skills-only local plugin; the
-Claude adapter packages the same shared Skills for local loading. v1 has no
-MCP server, hooks, apps, custom worktree manager, review engine, or project
-state database. MCP and hooks are future-only: introduce either only after
-documented evidence establishes that native capabilities and portable fallbacks
-cannot meet a material need.
+The repository deliberately distributes methodology and thin adapters; it is
+not an autonomous engineering service or a replacement orchestration system.
+The Codex/ChatGPT adapter is a local Skills plugin, and the Claude Code adapter
+packages the same shared Skills for local loading. v1 has no MCP server, hooks,
+apps, custom worktree manager, review engine, or project-state database. MCP
+and hooks are future-only: introduce either only after documented evidence
+establishes that native capabilities and portable fallbacks cannot meet a
+material need.
+
+## Install
+
+Clone the full repository; neither adapter supports copying its adapter
+directory on its own. Both rely on the canonical [`skills/`](skills/) content.
+
+### Codex or ChatGPT
+
+From the repository root, add the included local marketplace and install the
+plugin:
+
+```sh
+codex plugin marketplace add "$PWD/adapters/openai"
+codex plugin add agentic-engineering@agentic-engineering
+codex plugin list --marketplace agentic-engineering
+```
+
+Start a new Codex or ChatGPT work thread, then invoke `engineering-workflow`
+for Issue-based work. To remove this local installation later:
+
+```sh
+codex plugin remove agentic-engineering@agentic-engineering
+codex plugin marketplace remove agentic-engineering
+```
+
+For a clean-install procedure, expected output, and troubleshooting, see the
+[Codex/ChatGPT adapter installation guide](adapters/openai/INSTALL.md) and the
+[Codex host guide](docs/host-guides/codex.md).
+
+### Claude Code
+
+From the repository root, package the shared Skills and start Claude Code with
+the resulting local plugin:
+
+```sh
+python3 adapters/claude/scripts/check_shared_content.py
+python3 adapters/claude/scripts/package_plugin.py --output /tmp/agentic-engineering-claude
+claude --plugin-dir /tmp/agentic-engineering-claude
+```
+
+Inside Claude Code, confirm the Skill is available with `/help`, then invoke
+`/agentic-engineering:engineering-workflow`. This is intentionally a local
+plugin path: v1 does not publish a persistent Claude Code marketplace package.
+On Claude Code versions that support it, you can validate the package before
+starting Claude Code:
+
+```sh
+claude plugin validate /tmp/agentic-engineering-claude
+```
+
+See the [Claude Code adapter guide](adapters/claude/README.md) and [Claude
+Code host guide](docs/host-guides/claude-code.md) for verification and
+debugging.
 
 ## Start here
 
