@@ -56,7 +56,9 @@ See the [GitHub workflow state machine](docs/state-machine.md),
 [security and autonomy boundaries](docs/security-and-autonomy-boundaries.md),
 [contribution guide](CONTRIBUTING.md), and [workflow examples](docs/workflow-examples.md)
 for the complete requirements. The [Superpowers parity review](docs/superpowers-parity.md)
-records the capability-level equivalences and intentional deviations.
+records the capability-level equivalences and intentional deviations. The
+[v0.1 release-readiness gate](docs/v0.1-release-readiness.md) records the
+current candidate evidence and any remaining release blockers.
 
 ## Repository layout
 
