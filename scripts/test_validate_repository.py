@@ -29,6 +29,24 @@ def create_repository(root: Path) -> None:
         json.dumps({"name": "example", "version": "0.1.0"}), encoding="utf-8"
     )
     (root / "adapters" / "openai" / "skills").symlink_to(root / "skills", target_is_directory=True)
+    marketplace = root / "adapters" / "openai" / ".agents" / "plugins" / "marketplace.json"
+    marketplace.parent.mkdir(parents=True)
+    marketplace.write_text(
+        json.dumps(
+            {
+                "name": "example-marketplace",
+                "plugins": [
+                    {
+                        "name": "example",
+                        "source": {"source": "local", "path": "."},
+                        "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+                        "category": "Productivity",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     (root / "README.md").write_text("[Example](skills/example-skill/SKILL.md#example)\n", encoding="utf-8")
 
 
@@ -118,6 +136,18 @@ class ValidatorTests(unittest.TestCase):
             result = validate(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("invalid value for 'description'", result.stderr)
+
+    def test_rejects_invalid_openai_marketplace_source(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            create_repository(root)
+            marketplace = root / "adapters" / "openai" / ".agents" / "plugins" / "marketplace.json"
+            payload = json.loads(marketplace.read_text(encoding="utf-8"))
+            payload["plugins"][0]["source"]["path"] = "./missing-plugin"
+            marketplace.write_text(json.dumps(payload), encoding="utf-8")
+            result = validate(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("marketplace plugin source is missing", result.stderr)
 
 
 if __name__ == "__main__":
