@@ -55,7 +55,8 @@ conversation and local plans are not. For every material workstream:
 See the [GitHub workflow state machine](docs/state-machine.md),
 [security and autonomy boundaries](docs/security-and-autonomy-boundaries.md),
 [contribution guide](CONTRIBUTING.md), and [workflow examples](docs/workflow-examples.md)
-for the complete requirements.
+for the complete requirements. The [Superpowers parity review](docs/superpowers-parity.md)
+records the capability-level equivalences and intentional deviations.
 
 ## Repository layout
 
