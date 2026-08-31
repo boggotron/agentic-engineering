@@ -2,6 +2,10 @@
   "name": "agentic-engineering",
   "description": "Portable engineering workflow Skills for Claude Code.",
   "version": "0.1.0",
+  "author": {
+    "name": "agentic-engineering contributors",
+    "url": "https://github.com/boggotron/agentic-engineering"
+  },
   "repository": "https://github.com/boggotron/agentic-engineering",
   "keywords": [
     "engineering",

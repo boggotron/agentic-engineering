@@ -130,6 +130,43 @@ def validate_json_artifacts(root: Path, validation: Validation) -> None:
             validation.fail(f"{path.relative_to(root)}: $schema must be a string")
 
 
+def validate_openai_marketplace(root: Path, validation: Validation) -> None:
+    """Validate the repository-local marketplace that exposes the OpenAI adapter."""
+    path = root / "adapters" / "openai" / ".agents" / "plugins" / "marketplace.json"
+    if not path.is_file():
+        validation.fail("adapters/openai/.agents/plugins/marketplace.json: missing marketplace manifest")
+        return
+    data = read_json(path, validation)
+    if not isinstance(data, dict):
+        validation.fail(f"{path.relative_to(root)}: marketplace manifest must be a JSON object")
+        return
+    if not isinstance(data.get("name"), str) or not data["name"].strip():
+        validation.fail(f"{path.relative_to(root)}: marketplace manifest requires non-empty 'name'")
+    plugins = data.get("plugins")
+    if not isinstance(plugins, list) or not plugins:
+        validation.fail(f"{path.relative_to(root)}: marketplace manifest requires non-empty 'plugins'")
+        return
+
+    marketplace_root = path.parents[2]
+    for index, plugin in enumerate(plugins):
+        prefix = f"{path.relative_to(root)}: plugins[{index}]"
+        if not isinstance(plugin, dict) or not isinstance(plugin.get("name"), str) or not plugin["name"].strip():
+            validation.fail(f"{prefix}: requires non-empty 'name'")
+            continue
+        source = plugin.get("source")
+        if not isinstance(source, dict) or source.get("source") != "local" or not isinstance(source.get("path"), str):
+            validation.fail(f"{prefix}: requires a local source path")
+            continue
+        source_path = (marketplace_root / source["path"]).resolve()
+        manifest = source_path / ".codex-plugin" / "plugin.json"
+        if not manifest.is_file():
+            validation.fail(f"{prefix}: marketplace plugin source is missing .codex-plugin/plugin.json")
+            continue
+        manifest_data = read_json(manifest, validation)
+        if isinstance(manifest_data, dict) and manifest_data.get("name") != plugin["name"]:
+            validation.fail(f"{prefix}: marketplace plugin name must match source manifest")
+
+
 def github_anchor(heading: str) -> str:
     text = heading.strip().lower()
     text = re.sub(r"[\[\]`*_]", "", text)
@@ -237,6 +274,7 @@ def main() -> int:
     validation = Validation(errors=[])
     validate_skills(root, validation)
     validate_json_artifacts(root, validation)
+    validate_openai_marketplace(root, validation)
     validate_openai_skills_link(root, validation)
     validate_docs(root, validation)
     run_package_checks(root, validation)
