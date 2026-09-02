@@ -41,7 +41,7 @@ RISK_FIXTURE_LEVELS = {
     "human-r4-authorization.json": "R4", "r4-security-control-weakening.json": "R4", "human-unknown-conflicting-inputs.json": "R3",
 }
 RISK_RECORD_FIELDS = {"schema_version", "inputs", "decision"}
-RISK_INPUT_FIELDS = {"change_types", "affected_boundaries", "data_and_secrets", "external_effects", "privilege", "reversibility", "blast_radius", "compatibility", "verification_strength", "material_unknowns", "material_conflicts", "changes_classification_enforcement", "security_control_direction"}
+RISK_INPUT_FIELDS = {"change_types", "affected_boundaries", "data_and_secrets", "external_effects", "privilege", "reversibility", "blast_radius", "compatibility", "verification_strength", "material_unknowns", "material_conflicts", "changes_classification_enforcement", "security_control_direction", "action_authorization_required"}
 RISK_DECISION_FIELDS = {"risk_level", "rationale", "confidence", "human_classification_required", "escalation_reasons"}
 RISK_SCALAR_ENUMS = {"data_and_secrets": {"none", "internal", "personal_data", "sensitive_data", "secret", "unknown"}, "external_effects": {"none", "user_visible", "third_party", "production", "unknown"}, "privilege": {"none", "unchanged", "reduced", "increased", "secret_authority", "unknown"}, "reversibility": {"fully_reversible", "rollback_planned", "difficult_to_reverse", "irreversible", "unknown"}, "blast_radius": {"local", "repository", "user_population", "organization", "production", "unknown"}, "compatibility": {"none", "internal", "consumer_compatible", "consumer_breaking", "unknown"}, "verification_strength": {"strong", "partial", "insufficient", "unknown"}, "security_control_direction": {"not_applicable", "strengthened", "unchanged", "weakened", "unknown"}}
 RISK_REASONS = {"unknown_material_input", "conflicting_material_input", "stricter_applicable_signal", "classification_enforcement_change", "r4_action_authorization"}
@@ -207,9 +207,53 @@ def validate_risk_classification_schema(root: Path, validation: Validation) -> N
         validation.fail(f"{RISK_CLASSIFICATION_SCHEMA}: must require schema_version, inputs, and decision")
 
 
+def schema_errors(value: object, schema: dict[str, object], root: dict[str, object], location: str) -> list[str]:
+    """Small Draft 2020-12 subset needed by the checked-in risk schema."""
+    if "$ref" in schema:
+        target: object = root
+        for part in str(schema["$ref"]).removeprefix("#/").split("/"):
+            target = target[part]  # type: ignore[index]
+        return schema_errors(value, target, root, location)  # type: ignore[arg-type]
+    errors: list[str] = []
+    if "const" in schema and value != schema["const"]:
+        errors.append(f"{location}: must equal {schema['const']!r}")
+    if "enum" in schema and value not in schema["enum"]:  # type: ignore[operator]
+        errors.append(f"{location}: invalid enum value")
+    kind = schema.get("type")
+    valid_type = {"object": isinstance(value, dict), "array": isinstance(value, list), "string": isinstance(value, str), "boolean": isinstance(value, bool)}
+    if kind in valid_type and not valid_type[kind]:
+        return [f"{location}: must be a {kind}"]
+    if isinstance(value, dict):
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+        for field in required:  # type: ignore[union-attr]
+            if field not in value:
+                errors.append(f"{location}: missing required field {field}")
+        if schema.get("additionalProperties") is False:
+            for field in value.keys() - properties.keys():  # type: ignore[union-attr]
+                errors.append(f"{location}: unknown field {field}")
+        for field, child in properties.items():  # type: ignore[union-attr]
+            if field in value:
+                errors.extend(schema_errors(value[field], child, root, f"{location}.{field}"))
+    if isinstance(value, list):
+        if len(value) < schema.get("minItems", 0):
+            errors.append(f"{location}: too few items")
+        if schema.get("uniqueItems") and len({json.dumps(item, sort_keys=True) for item in value}) != len(value):
+            errors.append(f"{location}: duplicate items")
+        if isinstance(schema.get("items"), dict):
+            for index, item in enumerate(value):
+                errors.extend(schema_errors(item, schema["items"], root, f"{location}[{index}]"))  # type: ignore[arg-type]
+    if isinstance(value, str) and len(value) < schema.get("minLength", 0):
+        errors.append(f"{location}: too short")
+    return errors
+
+
 def validate_risk_classification_fixtures(root: Path, validation: Validation) -> None:
     """Validate checked-in representative records without implementing a classifier."""
     directory = root / "evals" / "risk-classification"
+    schema = read_json(root / RISK_CLASSIFICATION_SCHEMA, validation)
+    if not isinstance(schema, dict):
+        return
     for name in RISK_FIXTURES:
         path = directory / name
         if not path.is_file():
@@ -218,6 +262,8 @@ def validate_risk_classification_fixtures(root: Path, validation: Validation) ->
         data = read_json(path, validation)
         if not isinstance(data, dict):
             continue
+        for error in schema_errors(data, schema, schema, "record"):
+            validation.fail(f"{path.relative_to(root)}: schema violation: {error}")
         if set(data) != RISK_RECORD_FIELDS:
             validation.fail(f"{path.relative_to(root)}: unknown top-level fields or missing record fields")
             continue
@@ -245,14 +291,16 @@ def validate_risk_classification_fixtures(root: Path, validation: Validation) ->
             validation.fail(f"{path.relative_to(root)}: decision requires unique escalation_reasons and human_classification_required")
             continue
         required_reasons = set()
-        if inputs["material_unknowns"] or any(inputs[field] == "unknown" for field in RISK_SCALAR_ENUMS):
+        if inputs["material_unknowns"] or any(inputs[field] == "unknown" for field in RISK_SCALAR_ENUMS) or any("unknown" in inputs[field] for field in ("change_types", "affected_boundaries")):
             required_reasons.add("unknown_material_input")
         if inputs["material_conflicts"]:
             required_reasons.add("conflicting_material_input")
         if inputs["changes_classification_enforcement"]:
             required_reasons.add("classification_enforcement_change")
-        if decision["risk_level"] == "R4" or inputs["security_control_direction"] == "weakened":
+        if decision["risk_level"] == "R4" or inputs["security_control_direction"] == "weakened" or inputs["action_authorization_required"]:
             required_reasons.add("r4_action_authorization")
+        if inputs["action_authorization_required"] and decision["risk_level"] != "R4":
+            validation.fail(f"{path.relative_to(root)}: action_authorization_required requires R4")
         for reason in required_reasons:
             if not human_required or reason not in reasons:
                 validation.fail(f"{path.relative_to(root)}: {reason} requires human_classification_required")

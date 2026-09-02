@@ -11,7 +11,7 @@
     "inputs": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["change_types", "affected_boundaries", "data_and_secrets", "external_effects", "privilege", "reversibility", "blast_radius", "compatibility", "verification_strength", "material_unknowns", "material_conflicts", "changes_classification_enforcement", "security_control_direction"],
+      "required": ["change_types", "affected_boundaries", "data_and_secrets", "external_effects", "privilege", "reversibility", "blast_radius", "compatibility", "verification_strength", "material_unknowns", "material_conflicts", "changes_classification_enforcement", "security_control_direction", "action_authorization_required"],
       "properties": {
         "change_types": { "$ref": "#/$defs/change_types" },
         "affected_boundaries": { "$ref": "#/$defs/affected_boundaries" },
@@ -25,7 +25,8 @@
         "material_unknowns": { "$ref": "#/$defs/nonempty_strings" },
         "material_conflicts": { "$ref": "#/$defs/nonempty_strings" },
         "changes_classification_enforcement": { "type": "boolean" },
-        "security_control_direction": { "$ref": "#/$defs/security_control_direction" }
+        "security_control_direction": { "$ref": "#/$defs/security_control_direction" },
+        "action_authorization_required": { "type": "boolean" }
       }
     },
     "decision": {
