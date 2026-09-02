@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jsonschema import Draft202012Validator
+from validate_evidence_schema import validate_envelope, validate_schema_files
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -185,16 +185,21 @@ class EvidenceSchemaValidationTests(unittest.TestCase):
             self.assertIn("policy must have a namespaced id and SemVer version", result.stderr)
             self.assertIn("has an invalid relation, target, or digest", result.stderr)
 
-    def test_fixture_shape_conforms_to_draft_2020_12_schema(self) -> None:
+    def test_fixture_shape_conforms_to_committed_stdlib_contract(self) -> None:
         schema = json.loads((ROOT / "schemas/evidence-envelope.schema.json").read_text(encoding="utf-8"))
         expectations = json.loads((ROOT / "schemas/fixtures/evidence-envelope-schema-expectations.json").read_text(encoding="utf-8"))
-        validator = Draft202012Validator(schema)
+        family, errors = validate_schema_files(ROOT)
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(family)
+        self.assertEqual(schema["$schema"], "https://json-schema.org/draft/2020-12/schema")
         fixture_root = ROOT / "schemas/fixtures/evidence-envelope"
         self.assertEqual(set(expectations), {path.name for path in fixture_root.glob("*.json")})
         for path in sorted(fixture_root.glob("*.json")):
             with self.subTest(fixture=path.name):
-                errors = list(validator.iter_errors(json.loads(path.read_text(encoding="utf-8"))))
-                self.assertEqual(not errors, expectations[path.name])
+                shape_errors = validate_envelope(
+                    json.loads(path.read_text(encoding="utf-8")), path, ROOT, family, shape_only=True
+                )
+                self.assertEqual(not shape_errors, expectations[path.name])
 
 
 if __name__ == "__main__":

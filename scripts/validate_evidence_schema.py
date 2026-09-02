@@ -81,7 +81,9 @@ def validate_schema_files(root: Path) -> tuple[dict[str, object] | None, list[st
     return family, errors
 
 
-def validate_envelope(document: object, path: Path, root: Path, family: dict[str, object]) -> list[str]:
+def validate_envelope(
+    document: object, path: Path, root: Path, family: dict[str, object], *, shape_only: bool = False
+) -> list[str]:
     errors: list[str] = []
     prefix = str(path.relative_to(root))
     if not isinstance(document, dict):
@@ -95,7 +97,7 @@ def validate_envelope(document: object, path: Path, root: Path, family: dict[str
     version = document.get("schema_version")
     if not is_semver(version):
         errors.append(f"{prefix}: schema_version must be SemVer")
-    elif major(version) not in family.get("supported_majors", []):
+    elif not shape_only and major(version) not in family.get("supported_majors", []):
         errors.append(f"{prefix}: schema_version {version} is incompatible with the registry")
     if not isinstance(document.get("evidence_type"), str) or not TYPE_NAME.fullmatch(document["evidence_type"]):
         errors.append(f"{prefix}: evidence_type must be a namespaced type")
@@ -107,7 +109,7 @@ def validate_envelope(document: object, path: Path, root: Path, family: dict[str
     revision = document.get("revision")
     revision_kind = revision.get("kind") if isinstance(revision, dict) else None
     revision_value = revision.get("value") if isinstance(revision, dict) else None
-    if not isinstance(revision, dict) or set(revision) != {"kind", "value"} or revision_kind not in family.get("revision_algorithms", []) or revision_kind not in REVISION_PATTERNS or not isinstance(revision_value, str) or not REVISION_PATTERNS[revision_kind].fullmatch(revision_value):
+    if not isinstance(revision, dict) or set(revision) != {"kind", "value"} or (not shape_only and revision_kind not in family.get("revision_algorithms", [])) or revision_kind not in REVISION_PATTERNS or not isinstance(revision_value, str) or not REVISION_PATTERNS[revision_kind].fullmatch(revision_value):
         errors.append(f"{prefix}: revision must be an immutable algorithm-compatible Git identifier")
     policy = document.get("policy")
     if not isinstance(policy, dict) or set(policy) != {"id", "version"} or not isinstance(policy.get("id"), str) or not TYPE_NAME.fullmatch(policy["id"]) or not is_semver(policy.get("version")):
@@ -168,6 +170,8 @@ def validate_envelope(document: object, path: Path, root: Path, family: dict[str
                 errors.append(f"{prefix}: references must not contain duplicates")
             seen_references.add(serialized)
             has_derived_from = has_derived_from or reference["relation"] == "derived-from"
+            if shape_only:
+                continue
             target_url = urlparse(reference["target"])
             if target_url.scheme:
                 errors.append(f"{reference_prefix}: external reference is unsupported by the local validator")
