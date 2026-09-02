@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/boggotron/agentic-engineering/schemas/evidence-envelope.schema.json",
+  "title": "Agentic Engineering common evidence envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schema_version", "evidence_type", "id", "repository", "revision", "policy", "produced_at", "actor", "payload"],
+  "properties": {
+    "schema": {"const": "evidence-envelope"}, "schema_version": {"$ref": "#/$defs/semver"},
+    "evidence_type": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$"},
+    "id": {"type": "string", "pattern": "^urn:agentic-engineering:evidence:[a-z0-9][a-z0-9-]{0,127}$"},
+    "repository": {"type": "string", "format": "uri"}, "revision": {"$ref": "#/$defs/revision"},
+    "policy": {"$ref": "#/$defs/policy"}, "produced_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "actor": {"$ref": "#/$defs/actor"}, "provenance": {"$ref": "#/$defs/provenance"},
+    "references": {"type": "array", "items": {"$ref": "#/$defs/reference"}, "uniqueItems": true},
+    "extensions": {"$ref": "#/$defs/extensions"}, "payload": {"type": "object"}
+  },
+  "$defs": {
+    "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "revision": {"type": "object", "additionalProperties": false, "required": ["kind", "value"], "properties": {"kind": {"const": "git-sha256"}, "value": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+    "policy": {"type": "object", "additionalProperties": false, "required": ["id", "version"], "properties": {"id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$"}, "version": {"$ref": "#/$defs/semver"}}},
+    "actor": {"type": "object", "additionalProperties": false, "required": ["kind", "id", "role"], "properties": {"kind": {"enum": ["human", "agent", "service"]}, "id": {"type": "string", "minLength": 1, "maxLength": 256}, "role": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}}},
+    "provenance": {"type": "object", "additionalProperties": false, "required": ["source"], "properties": {"source": {"type": "string", "minLength": 1}, "run_id": {"type": "string", "minLength": 1}, "recorded_at": {"type": "string", "format": "date-time", "pattern": "Z$"}}},
+    "reference": {"type": "object", "additionalProperties": false, "required": ["relation", "target", "digest"], "properties": {"relation": {"enum": ["derived-from", "supports", "supersedes", "describes"]}, "target": {"type": "string", "minLength": 1}, "digest": {"$ref": "#/$defs/sha256"}}},
+    "extensions": {"type": "object", "propertyNames": {"pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$"}, "additionalProperties": {}}
+  }
+}
