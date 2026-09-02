@@ -127,6 +127,21 @@ class ValidatorTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("architecture plan must not claim to be canonical", result.stderr)
 
+    def test_rejects_architecture_plan_self_authority_variants(self) -> None:
+        for claim in (
+            "This plan is canonical.\n",
+            "# Canonical abstraction\n",
+            "This architecture plan is authoritative.\n",
+        ):
+            with self.subTest(claim=claim), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                create_repository(root)
+                write_valid_precedence_document(root)
+                (root / "docs" / "CROSS_PLATFORM_REPO_PLAN.md").write_text(claim, encoding="utf-8")
+                result = validate(root)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("architecture plan must not claim to be canonical", result.stderr)
+
     def test_rejects_malformed_skill_broken_docs_and_invalid_package(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

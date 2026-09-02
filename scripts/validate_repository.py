@@ -41,6 +41,13 @@ PRECEDENCE_TEXT = (
     "Repository instructions and the three normative sources prevail over nested instructions, memory, and unvalidated task context.",
     "Current repository state and revision-bound Issue/PR/CI evidence prevail over stale memory and agent observations.",
 )
+ARCHITECTURE_PLAN_AUTHORITY_CLAIM = re.compile(
+    r"^#{1,6}\s+canonical\b|"
+    r"\bthis is the canonical (?:engineering )?methodology\b|"
+    r"\b(?:this|the)(?:\s+(?:cross-platform|architecture|repository))?\s+"
+    r"(?:plan|document|roadmap)\b[^\n.]{0,80}\b(?:canonical|authoritative|normative)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 
 @dataclass
@@ -290,7 +297,7 @@ def validate_instruction_precedence(root: Path, validation: Validation) -> None:
     architecture_plan = root / "docs" / "CROSS_PLATFORM_REPO_PLAN.md"
     if architecture_plan.is_file():
         text = architecture_plan.read_text(encoding="utf-8")
-        if re.search(r"\bcanonical (?:engineering )?methodology\b", text, re.IGNORECASE):
+        if ARCHITECTURE_PLAN_AUTHORITY_CLAIM.search(text):
             validation.fail("docs/CROSS_PLATFORM_REPO_PLAN.md: architecture plan must not claim to be canonical")
 
 
