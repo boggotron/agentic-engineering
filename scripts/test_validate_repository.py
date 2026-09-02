@@ -489,18 +489,19 @@ class ValidatorTests(unittest.TestCase):
     def test_rejects_invalid_risk_classification_fixture_mutations(self) -> None:
         source = VALIDATOR.parents[1]
         cases = (
-            ("r0-documentation.json", lambda record: record.__setitem__("schema_version", 2), "unsupported schema_version"),
-            ("r1-refactor.json", lambda record: record.__setitem__("unexpected", True), "unknown top-level fields"),
+            ("r0-documentation.json", lambda record: record.__setitem__("schema_version", 2), "schema violation: record.schema_version: must equal 1"),
+            ("r1-refactor.json", lambda record: record.__setitem__("unexpected", True), "schema violation: record: unknown field unexpected"),
             ("human-unknown-input.json", lambda record: record["decision"].__setitem__("human_classification_required", False), "requires human_classification_required"),
-            ("r0-documentation.json", lambda record: record["decision"].__setitem__("confidence", "certain"), "invalid confidence"),
+            ("r0-documentation.json", lambda record: record["decision"].__setitem__("confidence", "certain"), "schema violation: record.decision.confidence: invalid enum value"),
             ("r1-refactor.json", lambda record: record["decision"].__setitem__("rationale", "   "), "non-blank rationale"),
-            ("r2-feature.json", lambda record: record["decision"].__setitem__("escalation_reasons", ["stricter_applicable_signal", "stricter_applicable_signal"]), "unique escalation_reasons"),
+            ("r2-feature.json", lambda record: record["decision"].__setitem__("escalation_reasons", ["stricter_applicable_signal", "stricter_applicable_signal"]), "schema violation: record.decision.escalation_reasons: duplicate items"),
             ("r3-sensitive-data.json", lambda record: record["inputs"].__setitem__("external_effects", "unknown"), "unknown_material_input requires human_classification_required"),
             ("r4-destructive-effect.json", lambda record: record["decision"].__setitem__("human_classification_required", False), "r4_action_authorization requires human_classification_required"),
             ("r2-feature.json", lambda record: record["inputs"].__setitem__("change_types", ["unknown"]), "unknown_material_input requires human_classification_required"),
             ("r2-feature.json", lambda record: record["inputs"].__setitem__("action_authorization_required", True), "action_authorization_required requires R4"),
             ("r0-documentation.json", lambda record: record.__setitem__("schema_version", True), "schema violation: record.schema_version: must be an integer"),
             ("r1-refactor.json", lambda record: record.__setitem__("inputs", "invalid"), "schema violation: record.inputs: must be an object"),
+            ("r1-refactor.json", lambda record: record["inputs"].__setitem__("external_effects", []), "schema violation: record.inputs.external_effects: invalid enum value"),
             ("r4-destructive-effect.json", lambda record: record["inputs"].__setitem__("action_authorization_required", False), "r4_action_authorization is only valid when action_authorization_required is true"),
         )
         for name, mutate, error in cases:

@@ -263,8 +263,11 @@ def validate_risk_classification_fixtures(root: Path, validation: Validation) ->
         data = read_json(path, validation)
         if not isinstance(data, dict):
             continue
-        for error in schema_errors(data, schema, schema, "record"):
+        errors = schema_errors(data, schema, schema, "record")
+        for error in errors:
             validation.fail(f"{path.relative_to(root)}: schema violation: {error}")
+        if errors:
+            continue
         if set(data) != RISK_RECORD_FIELDS:
             validation.fail(f"{path.relative_to(root)}: unknown top-level fields or missing record fields")
             continue
