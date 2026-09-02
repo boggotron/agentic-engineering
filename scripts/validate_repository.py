@@ -220,9 +220,10 @@ def schema_errors(value: object, schema: dict[str, object], root: dict[str, obje
     if "enum" in schema and value not in schema["enum"]:  # type: ignore[operator]
         errors.append(f"{location}: invalid enum value")
     kind = schema.get("type")
-    valid_type = {"object": isinstance(value, dict), "array": isinstance(value, list), "string": isinstance(value, str), "boolean": isinstance(value, bool)}
+    valid_type = {"object": isinstance(value, dict), "array": isinstance(value, list), "string": isinstance(value, str), "boolean": isinstance(value, bool), "integer": isinstance(value, int) and not isinstance(value, bool)}
     if kind in valid_type and not valid_type[kind]:
-        return [f"{location}: must be a {kind}"]
+        article = "an" if kind in {"integer", "object", "array"} else "a"
+        return [f"{location}: must be {article} {kind}"]
     if isinstance(value, dict):
         properties = schema.get("properties", {})
         required = schema.get("required", [])
@@ -297,10 +298,14 @@ def validate_risk_classification_fixtures(root: Path, validation: Validation) ->
             required_reasons.add("conflicting_material_input")
         if inputs["changes_classification_enforcement"]:
             required_reasons.add("classification_enforcement_change")
-        if decision["risk_level"] == "R4" or inputs["security_control_direction"] == "weakened" or inputs["action_authorization_required"]:
+        if inputs["action_authorization_required"]:
             required_reasons.add("r4_action_authorization")
         if inputs["action_authorization_required"] and decision["risk_level"] != "R4":
             validation.fail(f"{path.relative_to(root)}: action_authorization_required requires R4")
+        if decision["risk_level"] == "R4" and not human_required:
+            validation.fail(f"{path.relative_to(root)}: R4 requires human_classification_required")
+        if "r4_action_authorization" in reasons and not inputs["action_authorization_required"]:
+            validation.fail(f"{path.relative_to(root)}: r4_action_authorization is only valid when action_authorization_required is true")
         for reason in required_reasons:
             if not human_required or reason not in reasons:
                 validation.fail(f"{path.relative_to(root)}: {reason} requires human_classification_required")

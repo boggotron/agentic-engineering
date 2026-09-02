@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "inputs", "decision"],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "type": "integer", "const": 1 },
     "inputs": {
       "type": "object",
       "additionalProperties": false,

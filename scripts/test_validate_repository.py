@@ -499,6 +499,9 @@ class ValidatorTests(unittest.TestCase):
             ("r4-destructive-effect.json", lambda record: record["decision"].__setitem__("human_classification_required", False), "r4_action_authorization requires human_classification_required"),
             ("r2-feature.json", lambda record: record["inputs"].__setitem__("change_types", ["unknown"]), "unknown_material_input requires human_classification_required"),
             ("r2-feature.json", lambda record: record["inputs"].__setitem__("action_authorization_required", True), "action_authorization_required requires R4"),
+            ("r0-documentation.json", lambda record: record.__setitem__("schema_version", True), "schema violation: record.schema_version: must be an integer"),
+            ("r1-refactor.json", lambda record: record.__setitem__("inputs", "invalid"), "schema violation: record.inputs: must be an object"),
+            ("r4-destructive-effect.json", lambda record: record["inputs"].__setitem__("action_authorization_required", False), "r4_action_authorization is only valid when action_authorization_required is true"),
         )
         for name, mutate, error in cases:
             with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary:

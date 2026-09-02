@@ -29,9 +29,12 @@ whether the control is strengthened, unchanged, weakened, or unknown. The decisi
 level, a non-empty rationale, evidence confidence, the human-classification
 flag, and applicable escalation reasons.
 
-Set `action_authorization_required` when the record would request authorization
-to perform an action. That input is valid only for an R4 decision and requires
-both `human_classification_required: true` and `r4_action_authorization`.
+Set `action_authorization_required` only when the record would request
+authorization to perform an action. That input is valid only for an R4 decision
+and requires both `human_classification_required: true` and
+`r4_action_authorization`; that reason is prohibited when the flag is false.
+An R4 classification remains a human-classification matter even when no action
+authorization is requested.
 
 `schema_version` is the integer `1`. Consumers must reject another version and
 unknown top-level fields rather than silently interpret a changed contract.
