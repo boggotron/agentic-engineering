@@ -1,5 +1,9 @@
 # Capability contract and host abstraction
 
+- **Owner:** `@boggotron`
+- **Version:** `1.0`
+- **Review date:** `2026-09-02`
+
 ## Purpose
 
 This contract specifies the capabilities an engineering host must provide to
@@ -7,6 +11,12 @@ follow the repository methodology. It describes the required outcome, not a
 particular tool, command, or API. A host satisfies a capability when it
 preserves the semantic guarantee defined here and records the evidence required
 by the methodology.
+
+This document is the normative source for portable semantic capabilities. It
+complements the lifecycle in the [methodology](methodology.md) and authority
+boundaries in the [security and autonomy
+boundaries](security-and-autonomy-boundaries.md); [instruction
+precedence](instruction-precedence.md) defines their rank.
 
 The contract applies to Codex, ChatGPT, Claude Code, and a portable fallback
 environment. It supports the native-first invariant: use a host-provided

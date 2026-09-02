@@ -1,5 +1,11 @@
 # Cross-Platform Agentic Engineering Repository Plan
 
+> Historical roadmap material. The current normative sources are the
+> [methodology](methodology.md), [security and autonomy
+> boundaries](security-and-autonomy-boundaries.md), and [capability
+> contract](capability-contract.md), interpreted through [instruction
+> precedence](instruction-precedence.md).
+
 ## Purpose
 
 This repository will define a single, portable engineering methodology that can be followed by Codex, ChatGPT, and Claude Code without forcing any agent to reimplement capabilities that its host already provides natively.
@@ -14,7 +20,7 @@ Parent Epic: #1
 
 ## 1. Architectural decision
 
-### Canonical abstraction
+### Proposed abstraction
 
 The cross-platform methodology will be implemented as a collection of portable Agent Skills.
 
@@ -86,7 +92,7 @@ agentic-engineering/
 
 ---
 
-## 2. Canonical engineering lifecycle
+## 2. Proposed engineering lifecycle
 
 The methodology must preserve the following lifecycle regardless of host:
 
@@ -411,7 +417,7 @@ Issue: #9
 
 ### Phase 0 — Architecture foundation
 
-- #2 `[A] Define canonical methodology and invariants`
+- #2 `[A] Define shared methodology and invariants`
 - #3 `[B] Define capability contract and host abstraction`
 - #4 `[C] Establish repository policy and contribution conventions`
 - #12 `[K] Implement GitHub Issues/PR state machine and templates`
@@ -608,7 +614,7 @@ Hooks should be reconsidered only if behavioral evals show that instruction-leve
 
 ### Wave 1 — start first
 
-1. #2 Canonical methodology and invariants
+1. #2 Shared methodology and invariants
 2. #3 Capability contract and host abstraction
 3. #4 Repository policy and contribution conventions
 4. #12 GitHub Issues/PR state machine and templates

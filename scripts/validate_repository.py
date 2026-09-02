@@ -9,6 +9,7 @@ than a replacement for host-native plugin validators or an evaluation harness.
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import re
 import subprocess
@@ -22,6 +23,42 @@ SKILL_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
 YAML_FIELD = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):(?:[ \t]+(.*))?$")
+COMMAND_INVENTORY = Path("docs/command-inventory.md")
+COMMAND_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|")
+CI_WORKFLOW = Path(".github/workflows/validate.yml")
+CI_PYTHON_RUN = re.compile(
+    r"^\s*(?:-\s*)?run:\s*(['\"]?)(python(?:3(?:\.\d+)?)?\s+.+?)\1\s*$"
+)
+PRECEDENCE_DOCUMENT = Path("docs/instruction-precedence.md")
+NORMATIVE_SOURCES = (
+    "methodology.md",
+    "security-and-autonomy-boundaries.md",
+    "capability-contract.md",
+)
+PRECEDENCE_TEXT = (
+    "## Normative sources",
+    "`methodology.md` controls lifecycle.",
+    "`security-and-autonomy-boundaries.md` controls authority and approval boundaries.",
+    "`capability-contract.md` controls portable semantic capabilities.",
+    "## Conflict resolution",
+    "Applicable system, host, and law/policy controls prevail.",
+    "Explicit scoped human instructions prevail when they do not conflict with higher controls.",
+    "Repository instructions and the three normative sources prevail over nested instructions, memory, and unvalidated task context.",
+    "Current repository state and revision-bound Issue/PR/CI evidence prevail over stale memory and agent observations.",
+)
+NORMATIVE_OWNER = "@boggotron"
+NORMATIVE_METADATA = re.compile(
+    r"^- \*\*(Owner|Version|Review date):\*\* `([^`]+)`\s*$",
+    re.MULTILINE,
+)
+ARCHITECTURE_PLAN_AUTHORITY_CLAIM = re.compile(
+    r"^#{1,6}\s+(?:\d+(?:\.\d+)*[.)]?\s+)?canonical\b|"
+    r"\bthis is the canonical (?:engineering )?methodology\b|"
+    r"\b(?:this|the)(?:\s+(?:cross-platform|architecture|repository)){0,2}\s+"
+    r"(?:plan|document|roadmap)\b\s+(?:is|remains|serves\s+as|acts\s+as)\s+"
+    r"(?:the\s+)?(?:canonical|authoritative|normative)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 
 @dataclass
@@ -208,6 +245,135 @@ def validate_docs(root: Path, validation: Validation) -> None:
                     validation.fail(f"{source.relative_to(root)}: broken heading link: {target}")
 
 
+def validate_command_inventory(root: Path, validation: Validation) -> None:
+    path = root / COMMAND_INVENTORY
+    if not path.is_file():
+        validation.fail(f"{COMMAND_INVENTORY}: missing command inventory")
+        return
+
+    commands: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = COMMAND_ROW.match(line)
+        if match:
+            commands.append(match.group(1))
+
+    workflow = root / CI_WORKFLOW
+    try:
+        workflow_text = workflow.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        validation.fail(f"{CI_WORKFLOW}: missing or unreadable CI workflow")
+        ci_commands: list[str] = []
+    else:
+        ci_commands = []
+        for line in workflow_text.splitlines():
+            match = CI_PYTHON_RUN.match(line)
+            if match:
+                ci_commands.append(match.group(2))
+
+    for command in commands:
+        parts = command.split(maxsplit=1)
+        target = parts[1] if len(parts) == 2 and parts[0] == "python" else ""
+        target_path = (root / target).resolve() if target else root / "__missing_command_target__"
+        try:
+            target_path.relative_to(root.resolve())
+        except ValueError:
+            target_path = root / "__missing_command_target__"
+        if not target or not target_path.is_file():
+            validation.fail(f"command target does not exist: {command}")
+            continue
+        for instructions in (root / "AGENTS.md", root / "CONTRIBUTING.md"):
+            try:
+                text = instructions.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                text = ""
+            if command not in text:
+                validation.fail(
+                    f"command inventory command is missing from {instructions.name}: {command}"
+                )
+
+    for command in ci_commands:
+        if command not in commands:
+            validation.fail(
+                f"{COMMAND_INVENTORY}: CI Python command is missing from command inventory: {command}"
+            )
+    for command in commands:
+        if command not in ci_commands:
+            validation.fail(
+                f"{CI_WORKFLOW}: command inventory command is missing from CI workflow: {command}"
+            )
+
+
+def validate_normative_document_metadata(root: Path, validation: Validation) -> None:
+    """Require stable ownership and versioned review metadata on policy sources."""
+    for source in NORMATIVE_SOURCES:
+        relative = Path("docs") / source
+        path = root / relative
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            validation.fail(f"{relative}: missing normative document")
+            continue
+
+        metadata = dict(NORMATIVE_METADATA.findall(text))
+        for field in ("Owner", "Version", "Review date"):
+            if field not in metadata:
+                validation.fail(f"{relative}: missing required metadata: {field}")
+
+        owner = metadata.get("Owner")
+        if owner is not None and owner != NORMATIVE_OWNER:
+            validation.fail(
+                f"{relative}: Owner must be stable repository owner {NORMATIVE_OWNER}"
+            )
+
+        version = metadata.get("Version")
+        if version is not None and not re.fullmatch(r"[1-9]\d*\.\d+(?:\.\d+)?", version):
+            validation.fail(f"{relative}: Version must be numeric (for example, 1.0)")
+
+        review_date = metadata.get("Review date")
+        if review_date is not None:
+            try:
+                parsed_date = datetime.date.fromisoformat(review_date)
+            except ValueError:
+                parsed_date = None
+            if parsed_date is None or parsed_date.isoformat() != review_date:
+                validation.fail(
+                    f"{relative}: Review date must be an ISO date (YYYY-MM-DD)"
+                )
+
+
+def validate_instruction_precedence(root: Path, validation: Validation) -> None:
+    """Validate the repository's scoped instruction authority model."""
+    precedence = root / PRECEDENCE_DOCUMENT
+    if not precedence.is_file():
+        validation.fail(f"{PRECEDENCE_DOCUMENT}: missing")
+    else:
+        try:
+            text = precedence.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            validation.fail(f"{PRECEDENCE_DOCUMENT}: unreadable ({error})")
+        else:
+            for required in PRECEDENCE_TEXT:
+                if required not in text:
+                    validation.fail(f"{PRECEDENCE_DOCUMENT}: missing required precedence text: {required}")
+
+    for instructions in ("AGENTS.md", "CLAUDE.md"):
+        path = root / instructions
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            validation.fail(f"{instructions}: missing normative-source references")
+            continue
+        for source in NORMATIVE_SOURCES:
+            if f"docs/{source}" not in text:
+                validation.fail(f"{instructions}: missing normative-source reference: docs/{source}")
+
+    architecture_plan = root / "docs" / "CROSS_PLATFORM_REPO_PLAN.md"
+    if architecture_plan.is_file():
+        text = architecture_plan.read_text(encoding="utf-8")
+        if ARCHITECTURE_PLAN_AUTHORITY_CLAIM.search(text):
+            validation.fail("docs/CROSS_PLATFORM_REPO_PLAN.md: architecture plan must not claim to be canonical")
+
+
 def validate_openai_skills_link(root: Path, validation: Validation) -> None:
     path = root / "adapters" / "openai" / "skills"
     if not path.is_symlink():
@@ -277,6 +443,9 @@ def main() -> int:
     validate_openai_marketplace(root, validation)
     validate_openai_skills_link(root, validation)
     validate_docs(root, validation)
+    validate_command_inventory(root, validation)
+    validate_instruction_precedence(root, validation)
+    validate_normative_document_metadata(root, validation)
     run_package_checks(root, validation)
     if not args.skip_evals:
         run_evals(root, validation)

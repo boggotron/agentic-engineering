@@ -1,10 +1,16 @@
 # Security and autonomy boundaries
 
-This document defines the portable authority boundary for agents operating
-under the [canonical methodology](methodology.md). It classifies actions by
-their effect, rather than by a host command or integration. Host adapters may
-explain how to request or enforce approval, but they MUST NOT weaken these
-boundaries.
+- **Owner:** `@boggotron`
+- **Version:** `1.0`
+- **Review date:** `2026-09-02`
+
+This document is the normative source for portable authority and approval
+boundaries. It complements the lifecycle in the [methodology](methodology.md)
+and the host guarantees in the [capability contract](capability-contract.md).
+Its rank is defined by [instruction precedence](instruction-precedence.md). It
+classifies actions by their effect, rather than by a host command or integration.
+Host adapters may explain how to request or enforce approval, but they MUST NOT
+weaken these boundaries.
 
 The durable GitHub Issue and linked pull request record the approved scope,
 material approvals, exceptions, and evidence. This document does not replace
