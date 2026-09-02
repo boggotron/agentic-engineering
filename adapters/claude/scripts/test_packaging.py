@@ -3,17 +3,53 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
+
+sys.path.insert(0, str(Path(__file__).parent))
 
 from check_shared_content import coverage
 from package_plugin import __file__ as PACKAGER
+from package_plugin import package
+
+
+def local_markdown_targets(document: Path) -> list[Path]:
+    """Return the package-local Markdown targets linked by ``document``."""
+    targets: list[Path] = []
+    for destination in re.findall(r"(?<!!)\]\(([^)]+)\)", document.read_text(encoding="utf-8")):
+        target = urlsplit(destination.strip().strip("<>"))
+        if target.scheme or target.netloc or not target.path.endswith(".md"):
+            continue
+        targets.append((document.parent / unquote(target.path)).resolve())
+    return targets
 
 
 class PackagingTests(unittest.TestCase):
+    def test_package_includes_transitive_references_with_resolving_links(self) -> None:
+        """Catch a package that ships Skills but omits their local documentation."""
+        with tempfile.TemporaryDirectory(prefix="agentic-engineering-claude-") as temporary:
+            output = Path(temporary) / "plugin"
+            package(output)
+            package_root = output.resolve()
+
+            for reference in (
+                "docs/methodology.md",
+                "docs/capability-contract.md",
+                "docs/security-and-autonomy-boundaries.md",
+                "docs/instruction-precedence.md",
+            ):
+                self.assertTrue((output / reference).is_file(), reference)
+
+            for document in sorted(output.rglob("*.md")):
+                for target in local_markdown_targets(document):
+                    self.assertTrue(target.is_file(), f"{document.relative_to(output)} -> {target}")
+                    self.assertTrue(target.is_relative_to(package_root), f"link escapes package: {target}")
+
     def test_altered_skill_does_not_count_as_shared(self) -> None:
         source = {Path("first/SKILL.md"): b"first", Path("second/SKILL.md"): b"second"}
         packaged = {Path("first/SKILL.md"): b"altered", Path("second/SKILL.md"): b"second"}
