@@ -27,8 +27,11 @@ The envelope has these required fields:
 
 `provenance` records observable source metadata, never hidden reasoning, full
 private prompts, credentials, or secrets. Timestamps use RFC 3339 UTC (`Z`).
-Git revisions are 64-character lowercase SHA-256 identifiers; an alternative
-revision algorithm requires a future major envelope version.
+Git revisions carry their algorithm explicitly. The contract accepts
+`git-sha1` with a 40-character lowercase hexadecimal object ID and
+`git-sha256` with a 64-character lowercase hexadecimal object ID. The current
+repository reports Git object format `sha1`; a future algorithm must be added
+to both the schema and compatibility registry before it is accepted.
 
 ## Versioning and compatibility
 
@@ -67,8 +70,10 @@ artifact, including whitespace and its final newline. It is not a digest of a
 parsed or reformatted JSON value. A local reference target is resolved relative
 to the evidence file; it must exist, remain inside the supplied evidence root,
 and match the declared digest. A missing target or mismatch is a stale reference.
-Remote targets are identifiers, not fetched by the dependency-free validator;
-they require a separately retained artifact and digest-verifying verifier.
+An absolute URL target is an explicit external reference. The dependency-free
+local validator does not fetch it and reports it as unsupported, rather than
+misreporting it as a stale local path. External reference validation requires a
+separately retained artifact and a digest-verifying verifier.
 
 References may only use the registered relations `derived-from`, `supports`,
 `supersedes`, and `describes`. Each relation explains the dependency without
@@ -89,6 +94,9 @@ both expected successes and expected failures:
 | `malformed.json` | invalid | Malformed immutable Git revision. |
 | `incompatible-version.json` | invalid | Unsupported major version. |
 | `stale-reference.json` | invalid | Digest mismatch for an existing reference target. |
+| `migrated.json` | valid | Migration metadata has a digest-verified `derived-from` source. |
+| `migration-without-derived-from.json` | invalid | A migration cannot use another reference relation in place of its source link. |
+| `external-reference.json` | invalid | The local validator reports URL retrieval as explicitly unsupported. |
 
 Family payload validation, rendering, CI publication, and remote artifact
 retrieval are planned downstream work and are intentionally not implied by a

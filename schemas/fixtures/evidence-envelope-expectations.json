@@ -1,1 +1,1 @@
-{"valid.json":"valid","extension.json":"valid","malformed.json":"invalid","incompatible-version.json":"invalid","stale-reference.json":"invalid"}
+{"valid.json":"valid","extension.json":"valid","malformed.json":"invalid","incompatible-version.json":"invalid","stale-reference.json":"invalid","migration-source.json":"valid","migrated.json":"valid","migration-without-derived-from.json":"invalid","external-reference.json":"invalid"}

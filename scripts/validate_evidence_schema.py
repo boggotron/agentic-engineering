@@ -15,12 +15,12 @@ from urllib.parse import urlparse
 
 SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$")
 SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
-REVISION = re.compile(r"^[0-9a-f]{64}$")
+REVISION_PATTERNS = {"git-sha1": re.compile(r"^[0-9a-f]{40}$"), "git-sha256": re.compile(r"^[0-9a-f]{64}$")}
 TYPE_NAME = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$")
 EVIDENCE_ID = re.compile(r"^urn:agentic-engineering:evidence:[a-z0-9][a-z0-9-]{0,127}$")
 ROLE = re.compile(r"^[a-z][a-z0-9-]*$")
 REQUIRED = {"schema", "schema_version", "evidence_type", "id", "repository", "revision", "policy", "produced_at", "actor", "payload"}
-ALLOWED = REQUIRED | {"provenance", "references", "extensions"}
+ALLOWED = REQUIRED | {"provenance", "references", "extensions", "migration"}
 RELATIONS = {"derived-from", "supports", "supersedes", "describes"}
 
 
@@ -76,6 +76,8 @@ def validate_schema_files(root: Path) -> tuple[dict[str, object] | None, list[st
     }.items():
         if family.get(key) != value:
             errors.append(f"evidence compatibility registry has invalid {key}")
+    if family.get("revision_algorithms") != ["git-sha1", "git-sha256"]:
+        errors.append("evidence compatibility registry must declare supported revision algorithms")
     return family, errors
 
 
@@ -103,10 +105,12 @@ def validate_envelope(document: object, path: Path, root: Path, family: dict[str
     if not isinstance(repository, str) or not (urlparse(repository).scheme and urlparse(repository).netloc):
         errors.append(f"{prefix}: repository must be an absolute URI")
     revision = document.get("revision")
-    if not isinstance(revision, dict) or revision.get("kind") != "git-sha256" or not isinstance(revision.get("value"), str) or not REVISION.fullmatch(revision["value"]):
-        errors.append(f"{prefix}: revision must be an immutable git-sha256 identifier")
+    revision_kind = revision.get("kind") if isinstance(revision, dict) else None
+    revision_value = revision.get("value") if isinstance(revision, dict) else None
+    if not isinstance(revision, dict) or set(revision) != {"kind", "value"} or revision_kind not in family.get("revision_algorithms", []) or revision_kind not in REVISION_PATTERNS or not isinstance(revision_value, str) or not REVISION_PATTERNS[revision_kind].fullmatch(revision_value):
+        errors.append(f"{prefix}: revision must be an immutable algorithm-compatible Git identifier")
     policy = document.get("policy")
-    if not isinstance(policy, dict) or not TYPE_NAME.fullmatch(policy.get("id", "")) or not is_semver(policy.get("version")):
+    if not isinstance(policy, dict) or set(policy) != {"id", "version"} or not TYPE_NAME.fullmatch(policy.get("id", "")) or not is_semver(policy.get("version")):
         errors.append(f"{prefix}: policy must have a namespaced id and SemVer version")
     timestamp = document.get("produced_at")
     try:
@@ -116,17 +120,40 @@ def validate_envelope(document: object, path: Path, root: Path, family: dict[str
     except ValueError:
         errors.append(f"{prefix}: produced_at must be an RFC 3339 UTC timestamp")
     actor = document.get("actor")
-    if not isinstance(actor, dict) or actor.get("kind") not in {"human", "agent", "service"} or not isinstance(actor.get("id"), str) or not actor["id"] or not isinstance(actor.get("role"), str) or not ROLE.fullmatch(actor["role"]):
+    if not isinstance(actor, dict) or set(actor) != {"kind", "id", "role"} or actor.get("kind") not in {"human", "agent", "service"} or not isinstance(actor.get("id"), str) or not isinstance(actor.get("role"), str) or not ROLE.fullmatch(actor["role"]):
         errors.append(f"{prefix}: actor must identify a supported kind, id, and role")
+    elif not 1 <= len(actor["id"]) <= 256:
+        errors.append(f"{prefix}: actor id must be 1 to 256 characters")
     if not isinstance(document.get("payload"), dict):
         errors.append(f"{prefix}: payload must be an object")
     extensions = document.get("extensions")
     if extensions is not None and (not isinstance(extensions, dict) or any(not TYPE_NAME.fullmatch(key) for key in extensions)):
         errors.append(f"{prefix}: extensions must use reverse-DNS namespaces")
+    provenance = document.get("provenance")
+    if provenance is not None:
+        if not isinstance(provenance, dict) or not {"source"} <= set(provenance) or not set(provenance) <= {"source", "run_id", "recorded_at"}:
+            errors.append(f"{prefix}: provenance must contain only source, run_id, and recorded_at")
+        else:
+            for field in ("source", "run_id"):
+                if field in provenance and (not isinstance(provenance[field], str) or not provenance[field]):
+                    errors.append(f"{prefix}: provenance {field} must be a non-empty string")
+            if "recorded_at" in provenance:
+                try:
+                    if not isinstance(provenance["recorded_at"], str) or not provenance["recorded_at"].endswith("Z"):
+                        raise ValueError
+                    dt.datetime.fromisoformat(provenance["recorded_at"].replace("Z", "+00:00"))
+                except ValueError:
+                    errors.append(f"{prefix}: provenance recorded_at must be an RFC 3339 UTC timestamp")
+    migration = document.get("migration")
+    if migration is not None:
+        if not isinstance(migration, dict) or set(migration) != {"from_schema", "from_schema_version"} or migration.get("from_schema") != "evidence-envelope" or not is_semver(migration.get("from_schema_version")):
+            errors.append(f"{prefix}: migration must identify an evidence-envelope source schema and SemVer version")
     references = document.get("references", [])
     if not isinstance(references, list):
         errors.append(f"{prefix}: references must be an array")
     else:
+        seen_references: set[str] = set()
+        has_derived_from = False
         for index, reference in enumerate(references):
             reference_prefix = f"{prefix}: references[{index}]"
             if not isinstance(reference, dict) or set(reference) != {"relation", "target", "digest"}:
@@ -134,6 +161,15 @@ def validate_envelope(document: object, path: Path, root: Path, family: dict[str
                 continue
             if reference["relation"] not in RELATIONS or not isinstance(reference["target"], str) or not reference["target"] or not isinstance(reference["digest"], str) or not SHA256.fullmatch(reference["digest"]):
                 errors.append(f"{reference_prefix}: has an invalid relation, target, or digest")
+                continue
+            serialized = json.dumps(reference, sort_keys=True, separators=(",", ":"))
+            if serialized in seen_references:
+                errors.append(f"{prefix}: references must not contain duplicates")
+            seen_references.add(serialized)
+            has_derived_from = has_derived_from or reference["relation"] == "derived-from"
+            target_url = urlparse(reference["target"])
+            if target_url.scheme and target_url.netloc:
+                errors.append(f"{reference_prefix}: external reference is unsupported by the local validator")
                 continue
             target = (path.parent / reference["target"]).resolve()
             try:
@@ -148,6 +184,8 @@ def validate_envelope(document: object, path: Path, root: Path, family: dict[str
                 continue
             if actual != reference["digest"]:
                 errors.append(f"{reference_prefix}: digest does not match target bytes")
+        if migration is not None and not has_derived_from:
+            errors.append(f"{prefix}: migration requires a derived-from reference")
     return errors
 
 

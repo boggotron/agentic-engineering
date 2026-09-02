@@ -82,6 +82,66 @@ class EvidenceSchemaValidationTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("digest does not match", result.stderr)
 
+    def test_rejects_invalid_nested_provenance_and_oversized_actor(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            copy_schema_root(root)
+            fixture = root / "schemas/fixtures/evidence-envelope/valid.json"
+            document = json.loads(fixture.read_text(encoding="utf-8"))
+            document["provenance"] = {"source": "host", "unexpected": True}
+            document["actor"]["id"] = "a" * 257
+            fixture.write_text(json.dumps(document), encoding="utf-8")
+            result = run_validator(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("provenance must contain only source, run_id, and recorded_at", result.stderr)
+            self.assertIn("actor id must be 1 to 256 characters", result.stderr)
+
+    def test_rejects_duplicate_references(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            copy_schema_root(root)
+            fixture = root / "schemas/fixtures/evidence-envelope/extension.json"
+            document = json.loads(fixture.read_text(encoding="utf-8"))
+            document["references"].append(document["references"][0].copy())
+            fixture.write_text(json.dumps(document), encoding="utf-8")
+            result = run_validator(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("references must not contain duplicates", result.stderr)
+
+    def test_accepts_git_sha1_revision_for_detected_repository_format(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            copy_schema_root(root)
+            fixture = root / "schemas/fixtures/evidence-envelope/valid.json"
+            document = json.loads(fixture.read_text(encoding="utf-8"))
+            document["revision"] = {"kind": "git-sha1", "value": "0123456789abcdef0123456789abcdef01234567"}
+            fixture.write_text(json.dumps(document), encoding="utf-8")
+            self.assertEqual(run_validator(root).returncode, 0)
+
+    def test_rejects_migration_without_derived_from_reference(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            copy_schema_root(root)
+            fixture = root / "schemas/fixtures/evidence-envelope/valid.json"
+            document = json.loads(fixture.read_text(encoding="utf-8"))
+            document["migration"] = {"from_schema_version": "0.9.0"}
+            fixture.write_text(json.dumps(document), encoding="utf-8")
+            result = run_validator(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("migration requires a derived-from reference", result.stderr)
+
+    def test_reports_external_url_reference_as_unsupported(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            copy_schema_root(root)
+            fixture = root / "schemas/fixtures/evidence-envelope/extension.json"
+            document = json.loads(fixture.read_text(encoding="utf-8"))
+            document["references"][0]["target"] = "https://example.invalid/evidence.json"
+            fixture.write_text(json.dumps(document), encoding="utf-8")
+            result = run_validator(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("external reference is unsupported by the local validator", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
