@@ -44,7 +44,7 @@ PRECEDENCE_TEXT = (
 ARCHITECTURE_PLAN_AUTHORITY_CLAIM = re.compile(
     r"^#{1,6}\s+canonical\b|"
     r"\bthis is the canonical (?:engineering )?methodology\b|"
-    r"\b(?:this|the)(?:\s+(?:cross-platform|architecture|repository))?\s+"
+    r"\b(?:this|the)(?:\s+(?:cross-platform|architecture|repository)){0,2}\s+"
     r"(?:plan|document|roadmap)\b[^\n.]{0,80}\b(?:canonical|authoritative|normative)\b",
     re.IGNORECASE | re.MULTILINE,
 )

@@ -132,6 +132,7 @@ class ValidatorTests(unittest.TestCase):
             "This plan is canonical.\n",
             "# Canonical abstraction\n",
             "This architecture plan is authoritative.\n",
+            "The cross-platform repository plan is canonical.\n",
         ):
             with self.subTest(claim=claim), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
