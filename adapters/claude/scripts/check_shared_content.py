@@ -4,25 +4,13 @@
 from __future__ import annotations
 
 import hashlib
-import re
 import sys
 import tempfile
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from markdown_links import parse_markdown_links
 from package_plugin import SHARED_SKILLS, package
-
-
-INLINE_MARKDOWN_LINK = re.compile(
-    r"(?<!!)\]\(\s*(?P<destination><[^>]+>|[^\s)]+)"
-    r"(?:\s+(?:\"[^\"]*\"|'[^']*'|\([^)]*\)))?\s*\)"
-)
-REFERENCE_MARKDOWN_LINK = re.compile(r"(?<!!)\[[^]]+\]\[(?P<label>[^]]+)\]")
-REFERENCE_MARKDOWN_DEFINITION = re.compile(
-    r"^[ \t]{0,3}\[(?P<label>[^]]+)\]:[ \t]*"
-    r"(?P<destination><[^>]+>|[^\s]+)(?:[ \t]+.*)?$",
-    re.MULTILINE,
-)
 
 
 def skill_files(root: Path) -> dict[Path, bytes]:
@@ -91,11 +79,6 @@ def markdown_destination_errors(
     return []
 
 
-def normalized_reference_label(label: str) -> str:
-    """Normalize a Markdown reference label for case-insensitive matching."""
-    return " ".join(label.split()).casefold()
-
-
 def packaged_link_errors(output: Path) -> list[str]:
     """Return errors for package-local Markdown links that escape or do not resolve."""
     errors: list[str] = []
@@ -103,20 +86,13 @@ def packaged_link_errors(output: Path) -> list[str]:
     for relative, document in package_files(output).items():
         if document.suffix.lower() != ".md":
             continue
-        text = document.read_text(encoding="utf-8")
-        for match in INLINE_MARKDOWN_LINK.finditer(text):
-            errors.extend(markdown_destination_errors(package_root, relative, document, match["destination"]))
-
-        definitions = {
-            normalized_reference_label(match["label"]): match["destination"]
-            for match in REFERENCE_MARKDOWN_DEFINITION.finditer(text)
-        }
-        for match in REFERENCE_MARKDOWN_LINK.finditer(text):
-            label = normalized_reference_label(match["label"])
-            if label not in definitions:
-                errors.append(f"broken packaged reference link: {relative} -> [{match['label']}]")
-                continue
-            errors.extend(markdown_destination_errors(package_root, relative, document, definitions[label]))
+        links = parse_markdown_links(document.read_text(encoding="utf-8"))
+        for link in links.destinations:
+            errors.extend(markdown_destination_errors(package_root, relative, document, link.target))
+        errors.extend(
+            f"broken packaged reference link: {relative} -> [{label}]"
+            for label in links.unresolved_references
+        )
     return errors
 
 
@@ -131,8 +107,18 @@ def validate_package(output: Path) -> list[str]:
         expected_root = Path(temporary) / "plugin"
         package(expected_root)
         expected = package_files(expected_root)
+        expected_directories = {
+            path.relative_to(expected_root)
+            for path in expected_root.rglob("*")
+            if path.is_dir() and not path.is_symlink()
+        }
 
         actual = package_files(output)
+        actual_directories = {
+            path.relative_to(output)
+            for path in output.rglob("*")
+            if path.is_dir() and not path.is_symlink()
+        }
         errors.extend(
             f"missing expected package file: {relative}"
             for relative in sorted(expected.keys() - actual.keys())
@@ -140,6 +126,10 @@ def validate_package(output: Path) -> list[str]:
         errors.extend(
             f"unexpected package file: {relative}"
             for relative in sorted(actual.keys() - expected.keys())
+        )
+        errors.extend(
+            f"unexpected package directory: {relative}"
+            for relative in sorted(actual_directories - expected_directories)
         )
         errors.extend(
             f"digest divergence: {relative}"
