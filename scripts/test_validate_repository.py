@@ -289,6 +289,35 @@ class ValidatorTests(unittest.TestCase):
             self.assertIn("broken link", result.stderr)
             self.assertIn("invalid JSON", result.stderr)
 
+    def test_ignores_internal_superpowers_markdown_artifacts(self) -> None:
+        """Internal ignored task artifacts must not participate in repository link checks."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            create_repository(root)
+            write_valid_precedence_document(root)
+            artifact = root / ".superpowers" / "sdd" / "task-report.md"
+            artifact.parent.mkdir(parents=True)
+            artifact.write_text("[Outside](../../outside.md)\n", encoding="utf-8")
+
+            result = validate(root)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_validates_tracked_superpowers_markdown(self) -> None:
+        """Tracked Markdown outside the ignored SDD subtree remains repository documentation."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            create_repository(root)
+            write_valid_precedence_document(root)
+            document = root / ".superpowers" / "tracked.md"
+            document.parent.mkdir(parents=True)
+            document.write_text("[Missing](missing.md)\n", encoding="utf-8")
+
+            result = validate(root)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(".superpowers/tracked.md: broken link: missing.md", result.stderr)
+
     def test_rejects_command_inventory_that_names_a_missing_script(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -223,7 +223,8 @@ def anchors(path: Path) -> set[str]:
 def validate_docs(root: Path, validation: Validation) -> None:
     markdown_files = sorted(root.rglob("*.md"))
     for source in markdown_files:
-        if ".git" in source.parts:
+        relative = source.relative_to(root)
+        if ".git" in source.parts or relative.parts[:2] == (".superpowers", "sdd"):
             continue
         text = source.read_text(encoding="utf-8")
         for raw_target in MARKDOWN_LINK.findall(text):
@@ -391,13 +392,16 @@ def run_python(root: Path, script: Path, validation: Validation) -> None:
 
 
 def run_package_checks(root: Path, validation: Validation) -> None:
-    for relative in (
-        Path("adapters/claude/scripts/test_packaging.py"),
-        Path("adapters/claude/scripts/check_shared_content.py"),
-    ):
-        script = root / relative
-        if script.is_file():
-            run_python(root, script, validation)
+    script = root / "adapters/claude/scripts/test_packaging.py"
+    if script.is_file():
+        run_python(root, script, validation)
+
+
+def run_claude_package_integrity_check(root: Path, validation: Validation) -> None:
+    """Run the package check that calls validate_package on a fresh artifact."""
+    script = root / "adapters/claude/scripts/check_shared_content.py"
+    if script.is_file():
+        run_python(root, script, validation)
 
 
 def run_evals(root: Path, validation: Validation) -> None:
@@ -447,6 +451,7 @@ def main() -> int:
     validate_instruction_precedence(root, validation)
     validate_normative_document_metadata(root, validation)
     run_package_checks(root, validation)
+    run_claude_package_integrity_check(root, validation)
     if not args.skip_evals:
         run_evals(root, validation)
     if validation.errors:
