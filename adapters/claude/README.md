@@ -14,8 +14,16 @@ creates a self-contained plugin directory whose Skill files are byte-identical
 copies of the shared source at package time. It does not introduce a
 Claude-specific methodology fork.
 
-The [shared-content check](scripts/check_shared_content.py) packages into a
-temporary directory and proves the generated `SKILL.md` files are identical to
+The package layout is deterministic: `.claude-plugin/` and `skills/` are
+copied from their canonical sources, and transitive local Markdown dependencies
+are copied below `docs/`. Skills remain byte-identical to their canonical
+sources; only copied documentation links are rewritten for the package layout.
+
+Author Skills and repository documentation in their canonical locations. Do not
+edit a generated package as a source of truth. The
+[shared-content check](scripts/check_shared_content.py) packages into a
+temporary directory, validates its exact files, SHA-256 digests, and local
+Markdown links, then proves that generated `SKILL.md` files are identical to
 the shared source. It reports both a file and byte coverage percentage; the
 required threshold is 90%, and the expected result is 100%.
 
@@ -30,6 +38,13 @@ From a clean clone of this repository:
 ```sh
 python3 adapters/claude/scripts/check_shared_content.py
 python3 adapters/claude/scripts/package_plugin.py --output /tmp/agentic-engineering-claude
+claude plugin validate /tmp/agentic-engineering-claude
+```
+
+To perform an interactive clean-install check, start a fresh Claude Code session
+with the generated package:
+
+```sh
 claude --plugin-dir /tmp/agentic-engineering-claude
 ```
 
@@ -40,10 +55,8 @@ then invoke one, for example:
 /agentic-engineering:engineering-workflow
 ```
 
-For a local manifest and component check on Claude Code versions that support
-it, run `claude plugin validate /tmp/agentic-engineering-claude`. If validation
-or loading reports an error, use the following and retain the observed output
-in the linked Issue or pull request:
+If validation or loading reports an error, use the following and retain the
+observed output in the linked Issue or pull request:
 
 ```sh
 claude --debug --plugin-dir /tmp/agentic-engineering-claude

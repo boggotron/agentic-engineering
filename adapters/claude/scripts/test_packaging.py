@@ -13,7 +13,7 @@ from urllib.parse import unquote, urlsplit
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from check_shared_content import coverage
+from check_shared_content import coverage, validate_package
 from package_plugin import __file__ as PACKAGER
 from package_plugin import package
 
@@ -59,6 +59,40 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual((file_coverage, matching_files), (50.0, 1))
         self.assertLess(byte_coverage, 90.0)
         self.assertEqual(matching_bytes, len(b"second"))
+
+    def test_package_validation_reports_a_missing_packaged_reference(self) -> None:
+        """Catch a package whose copied normative dependency was removed."""
+        with tempfile.TemporaryDirectory(prefix="agentic-engineering-claude-") as temporary:
+            output = Path(temporary) / "plugin"
+            package(output)
+            (output / "docs" / "methodology.md").unlink()
+
+            errors = validate_package(output)
+
+        self.assertIn("missing expected package file: docs/methodology.md", errors)
+
+    def test_package_validation_reports_an_unexpected_artifact_file(self) -> None:
+        """Catch a package that contains a file the deterministic layout does not allow."""
+        with tempfile.TemporaryDirectory(prefix="agentic-engineering-claude-") as temporary:
+            output = Path(temporary) / "plugin"
+            package(output)
+            (output / "unexpected-artifact.txt").write_text("unexpected", encoding="utf-8")
+
+            errors = validate_package(output)
+
+        self.assertIn("unexpected package file: unexpected-artifact.txt", errors)
+
+    def test_package_validation_reports_a_skill_digest_divergence(self) -> None:
+        """Catch a package whose canonical Skill bytes have been altered."""
+        with tempfile.TemporaryDirectory(prefix="agentic-engineering-claude-") as temporary:
+            output = Path(temporary) / "plugin"
+            package(output)
+            skill = output / "skills" / "engineering-workflow" / "SKILL.md"
+            skill.write_text(skill.read_text(encoding="utf-8") + "\nAltered package.\n", encoding="utf-8")
+
+            errors = validate_package(output)
+
+        self.assertIn("digest divergence: skills/engineering-workflow/SKILL.md", errors)
 
     def test_existing_file_output_is_an_argparse_error(self) -> None:
         with tempfile.TemporaryDirectory(prefix="agentic-engineering-claude-") as temporary:
