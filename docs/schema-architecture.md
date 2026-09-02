@@ -70,7 +70,8 @@ artifact, including whitespace and its final newline. It is not a digest of a
 parsed or reformatted JSON value. A local reference target is resolved relative
 to the evidence file; it must exist, remain inside the supplied evidence root,
 and match the declared digest. A missing target or mismatch is a stale reference.
-An absolute URL target is an explicit external reference. The dependency-free
+Any absolute URI target, including `file:` URIs, is an explicit external
+reference. The dependency-free
 local validator does not fetch it and reports it as unsupported, rather than
 misreporting it as a stale local path. External reference validation requires a
 separately retained artifact and a digest-verifying verifier.

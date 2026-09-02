@@ -110,7 +110,7 @@ def validate_envelope(document: object, path: Path, root: Path, family: dict[str
     if not isinstance(revision, dict) or set(revision) != {"kind", "value"} or revision_kind not in family.get("revision_algorithms", []) or revision_kind not in REVISION_PATTERNS or not isinstance(revision_value, str) or not REVISION_PATTERNS[revision_kind].fullmatch(revision_value):
         errors.append(f"{prefix}: revision must be an immutable algorithm-compatible Git identifier")
     policy = document.get("policy")
-    if not isinstance(policy, dict) or set(policy) != {"id", "version"} or not TYPE_NAME.fullmatch(policy.get("id", "")) or not is_semver(policy.get("version")):
+    if not isinstance(policy, dict) or set(policy) != {"id", "version"} or not isinstance(policy.get("id"), str) or not TYPE_NAME.fullmatch(policy["id"]) or not is_semver(policy.get("version")):
         errors.append(f"{prefix}: policy must have a namespaced id and SemVer version")
     timestamp = document.get("produced_at")
     try:
@@ -144,8 +144,9 @@ def validate_envelope(document: object, path: Path, root: Path, family: dict[str
                     dt.datetime.fromisoformat(provenance["recorded_at"].replace("Z", "+00:00"))
                 except ValueError:
                     errors.append(f"{prefix}: provenance recorded_at must be an RFC 3339 UTC timestamp")
+    has_migration = "migration" in document
     migration = document.get("migration")
-    if migration is not None:
+    if has_migration:
         if not isinstance(migration, dict) or set(migration) != {"from_schema", "from_schema_version"} or migration.get("from_schema") != "evidence-envelope" or not is_semver(migration.get("from_schema_version")):
             errors.append(f"{prefix}: migration must identify an evidence-envelope source schema and SemVer version")
     references = document.get("references", [])
@@ -159,7 +160,7 @@ def validate_envelope(document: object, path: Path, root: Path, family: dict[str
             if not isinstance(reference, dict) or set(reference) != {"relation", "target", "digest"}:
                 errors.append(f"{reference_prefix}: must contain only relation, target, and digest")
                 continue
-            if reference["relation"] not in RELATIONS or not isinstance(reference["target"], str) or not reference["target"] or not isinstance(reference["digest"], str) or not SHA256.fullmatch(reference["digest"]):
+            if not isinstance(reference["relation"], str) or reference["relation"] not in RELATIONS or not isinstance(reference["target"], str) or not reference["target"] or not isinstance(reference["digest"], str) or not SHA256.fullmatch(reference["digest"]):
                 errors.append(f"{reference_prefix}: has an invalid relation, target, or digest")
                 continue
             serialized = json.dumps(reference, sort_keys=True, separators=(",", ":"))
@@ -168,7 +169,7 @@ def validate_envelope(document: object, path: Path, root: Path, family: dict[str
             seen_references.add(serialized)
             has_derived_from = has_derived_from or reference["relation"] == "derived-from"
             target_url = urlparse(reference["target"])
-            if target_url.scheme and target_url.netloc:
+            if target_url.scheme:
                 errors.append(f"{reference_prefix}: external reference is unsupported by the local validator")
                 continue
             target = (path.parent / reference["target"]).resolve()
@@ -184,7 +185,7 @@ def validate_envelope(document: object, path: Path, root: Path, family: dict[str
                 continue
             if actual != reference["digest"]:
                 errors.append(f"{reference_prefix}: digest does not match target bytes")
-        if migration is not None and not has_derived_from:
+        if has_migration and not has_derived_from:
             errors.append(f"{prefix}: migration requires a derived-from reference")
     return errors
 

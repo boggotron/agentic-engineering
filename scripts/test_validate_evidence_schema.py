@@ -11,6 +11,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from jsonschema import Draft202012Validator
+
 
 ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = Path(__file__).with_name("validate_evidence_schema.py")
@@ -141,6 +143,58 @@ class EvidenceSchemaValidationTests(unittest.TestCase):
             result = run_validator(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("external reference is unsupported by the local validator", result.stderr)
+
+    def test_reports_file_uri_reference_as_unsupported(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            copy_schema_root(root)
+            fixture = root / "schemas/fixtures/evidence-envelope/extension.json"
+            document = json.loads(fixture.read_text(encoding="utf-8"))
+            document["references"][0]["target"] = "file:///private/evidence.json"
+            fixture.write_text(json.dumps(document), encoding="utf-8")
+            result = run_validator(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("external reference is unsupported by the local validator", result.stderr)
+
+    def test_rejects_explicit_null_migration(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            copy_schema_root(root)
+            fixture = root / "schemas/fixtures/evidence-envelope/valid.json"
+            document = json.loads(fixture.read_text(encoding="utf-8"))
+            document["migration"] = None
+            fixture.write_text(json.dumps(document), encoding="utf-8")
+            result = run_validator(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("migration must identify an evidence-envelope source schema", result.stderr)
+
+    def test_reports_malformed_nested_json_types_without_crashing(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            copy_schema_root(root)
+            valid = root / "schemas/fixtures/evidence-envelope/valid.json"
+            valid_document = json.loads(valid.read_text(encoding="utf-8"))
+            valid_document["policy"]["id"] = 42
+            valid.write_text(json.dumps(valid_document), encoding="utf-8")
+            extension = root / "schemas/fixtures/evidence-envelope/extension.json"
+            extension_document = json.loads(extension.read_text(encoding="utf-8"))
+            extension_document["references"][0]["relation"] = []
+            extension.write_text(json.dumps(extension_document), encoding="utf-8")
+            result = run_validator(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("policy must have a namespaced id and SemVer version", result.stderr)
+            self.assertIn("has an invalid relation, target, or digest", result.stderr)
+
+    def test_fixture_shape_conforms_to_draft_2020_12_schema(self) -> None:
+        schema = json.loads((ROOT / "schemas/evidence-envelope.schema.json").read_text(encoding="utf-8"))
+        expectations = json.loads((ROOT / "schemas/fixtures/evidence-envelope-schema-expectations.json").read_text(encoding="utf-8"))
+        validator = Draft202012Validator(schema)
+        fixture_root = ROOT / "schemas/fixtures/evidence-envelope"
+        self.assertEqual(set(expectations), {path.name for path in fixture_root.glob("*.json")})
+        for path in sorted(fixture_root.glob("*.json")):
+            with self.subTest(fixture=path.name):
+                errors = list(validator.iter_errors(json.loads(path.read_text(encoding="utf-8"))))
+                self.assertEqual(not errors, expectations[path.name])
 
 
 if __name__ == "__main__":
