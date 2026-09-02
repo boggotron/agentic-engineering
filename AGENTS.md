@@ -1,9 +1,11 @@
 # Repository Instructions for Agents
 
-This file records repository-specific constraints. The portable engineering
-methodology, lifecycle, and host-capability guidance are canonical in the
-[cross-platform repository plan](docs/CROSS_PLATFORM_REPO_PLAN.md). Do not
-copy or fork that methodology into repository instruction files.
+This thin entry point records repository-specific constraints. The normative
+sources are the [methodology](docs/methodology.md), [security and autonomy
+boundaries](docs/security-and-autonomy-boundaries.md), and [capability
+contract](docs/capability-contract.md); their ranked handling is defined in
+[instruction precedence](docs/instruction-precedence.md). Do not copy or fork
+that shared guidance into repository instruction files.
 
 ## Scope and durable state
 
@@ -43,13 +45,13 @@ evidence.
 - Keep links to planned artifacts clearly labelled as planned when they do not
   yet exist.
 - Preserve the separation between shared Skills and thin host-specific
-  adapters described in the canonical plan.
+  adapters described by the normative sources.
 
 ## Working conventions
 
-Follow the lifecycle, isolation, review, verification, and human-approval
-requirements in the [canonical plan](docs/CROSS_PLATFORM_REPO_PLAN.md).
-Use the host's native facilities where available; this repository does not
-provide substitute orchestration, worktree, review, or project-state tooling.
-The shared agent-authority rules, including human-only merge, are canonical in
-the [security and autonomy boundaries](docs/security-and-autonomy-boundaries.md).
+Follow the lifecycle in the [methodology](docs/methodology.md), the authority
+boundaries in the [security and autonomy
+boundaries](docs/security-and-autonomy-boundaries.md), and the host selection
+rules in the [capability contract](docs/capability-contract.md). Use the host's
+native facilities where available; this repository does not provide substitute
+orchestration, worktree, review, or project-state tooling.

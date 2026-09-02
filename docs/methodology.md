@@ -4,6 +4,13 @@ This document is the authoritative, host-neutral engineering process for this
 repository. It defines the outcomes an agent must achieve; it does not prescribe
 particular commands, tools, or agent harness features.
 
+It is the normative source for lifecycle. For its rank relative to system,
+human, repository, and state evidence, see [instruction
+precedence](instruction-precedence.md). Authority and approval boundaries are
+defined by [security and autonomy
+boundaries](security-and-autonomy-boundaries.md); portable semantic capability
+requirements are defined by the [capability contract](capability-contract.md).
+
 The methodology applies to Codex, ChatGPT, Claude Code, and any future host.
 Host-specific guides may explain how a host meets these requirements, but may not
 weaken them. The canonical methodology abstraction is portable Agent Skills; see

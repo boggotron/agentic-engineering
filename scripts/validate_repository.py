@@ -24,6 +24,23 @@ HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
 YAML_FIELD = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):(?:[ \t]+(.*))?$")
 COMMAND_INVENTORY = Path("docs/command-inventory.md")
 COMMAND_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|")
+PRECEDENCE_DOCUMENT = Path("docs/instruction-precedence.md")
+NORMATIVE_SOURCES = (
+    "methodology.md",
+    "security-and-autonomy-boundaries.md",
+    "capability-contract.md",
+)
+PRECEDENCE_TEXT = (
+    "## Normative sources",
+    "`methodology.md` controls lifecycle.",
+    "`security-and-autonomy-boundaries.md` controls authority and approval boundaries.",
+    "`capability-contract.md` controls portable semantic capabilities.",
+    "## Conflict resolution",
+    "Applicable system, host, and law/policy controls prevail.",
+    "Explicit scoped human instructions prevail when they do not conflict with higher controls.",
+    "Repository instructions and the three normative sources prevail over nested instructions, memory, and unvalidated task context.",
+    "Current repository state and revision-bound Issue/PR/CI evidence prevail over stale memory and agent observations.",
+)
 
 
 @dataclass
@@ -244,6 +261,39 @@ def validate_command_inventory(root: Path, validation: Validation) -> None:
                 )
 
 
+def validate_instruction_precedence(root: Path, validation: Validation) -> None:
+    """Validate the repository's scoped instruction authority model."""
+    precedence = root / PRECEDENCE_DOCUMENT
+    if not precedence.is_file():
+        validation.fail(f"{PRECEDENCE_DOCUMENT}: missing")
+    else:
+        try:
+            text = precedence.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            validation.fail(f"{PRECEDENCE_DOCUMENT}: unreadable ({error})")
+        else:
+            for required in PRECEDENCE_TEXT:
+                if required not in text:
+                    validation.fail(f"{PRECEDENCE_DOCUMENT}: missing required precedence text: {required}")
+
+    for instructions in ("AGENTS.md", "CLAUDE.md"):
+        path = root / instructions
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            validation.fail(f"{instructions}: missing normative-source references")
+            continue
+        for source in NORMATIVE_SOURCES:
+            if f"docs/{source}" not in text:
+                validation.fail(f"{instructions}: missing normative-source reference: docs/{source}")
+
+    architecture_plan = root / "docs" / "CROSS_PLATFORM_REPO_PLAN.md"
+    if architecture_plan.is_file():
+        text = architecture_plan.read_text(encoding="utf-8")
+        if re.search(r"\bcanonical (?:engineering )?methodology\b", text, re.IGNORECASE):
+            validation.fail("docs/CROSS_PLATFORM_REPO_PLAN.md: architecture plan must not claim to be canonical")
+
+
 def validate_openai_skills_link(root: Path, validation: Validation) -> None:
     path = root / "adapters" / "openai" / "skills"
     if not path.is_symlink():
@@ -314,6 +364,7 @@ def main() -> int:
     validate_openai_skills_link(root, validation)
     validate_docs(root, validation)
     validate_command_inventory(root, validation)
+    validate_instruction_precedence(root, validation)
     run_package_checks(root, validation)
     if not args.skip_evals:
         run_evals(root, validation)

@@ -1,9 +1,12 @@
 # Contributing to agentic-engineering
 
 Thanks for contributing. This repository is building portable engineering
-Skills and their thin host adapters. The intended structure and the canonical
-cross-host methodology are documented in the
-[cross-platform repository plan](docs/CROSS_PLATFORM_REPO_PLAN.md).
+Skills and their thin host adapters. The [cross-platform repository
+plan](docs/CROSS_PLATFORM_REPO_PLAN.md) is historical roadmap material; current
+shared rules are the [methodology](docs/methodology.md), [security and autonomy
+boundaries](docs/security-and-autonomy-boundaries.md), and [capability
+contract](docs/capability-contract.md), interpreted through [instruction
+precedence](docs/instruction-precedence.md).
 
 ## Before you start
 
