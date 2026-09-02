@@ -15,11 +15,16 @@ copy or fork that methodology into repository instruction files.
 
 ## Current commands
 
-The repository currently has no package manifest or automated lint, test,
-build, or evaluation command. Do not invent command names or report an
-unexecuted command as passing.
+The authoritative repository commands are listed in the
+[command inventory](docs/command-inventory.md). Run these exact commands for
+all repository changes:
 
-For documentation-only changes, run checks that are available in the checkout:
+```sh
+python scripts/test_validate_repository.py
+python scripts/validate_repository.py
+```
+
+For documentation-only changes, the applicable checks are:
 
 ```sh
 git status --short

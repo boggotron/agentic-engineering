@@ -27,10 +27,21 @@ Use a focused branch and keep each pull request scoped to its linked Issue.
 Make commits that explain the change in imperative language. Keep generated,
 unrelated, and local-environment changes out of the pull request.
 
-The repository does not currently define automated lint, test, build, or eval
-commands. Until it does, use the checks that are applicable to the change and
-state unavailable automated checks as `N/A` with a short justification. For
-documentation changes, verify Markdown headings and relative links manually.
+Run the exact repository validation commands documented in the
+[command inventory](docs/command-inventory.md):
+
+```sh
+python scripts/test_validate_repository.py
+python scripts/validate_repository.py
+```
+
+For documentation-only changes, also verify Markdown headings and relative
+links manually, along with the applicable checkout checks:
+
+```sh
+git status --short
+rg --files -g '*.md'
+```
 
 Follow the portable [security and autonomy boundaries](docs/security-and-autonomy-boundaries.md).
 In particular, do not expose secrets, bypass required checks or branch

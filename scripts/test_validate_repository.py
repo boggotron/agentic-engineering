@@ -48,6 +48,19 @@ def create_repository(root: Path) -> None:
         encoding="utf-8",
     )
     (root / "README.md").write_text("[Example](skills/example-skill/SKILL.md#example)\n", encoding="utf-8")
+    (root / "scripts").mkdir()
+    (root / "scripts" / "check.py").write_text("print('check')\n", encoding="utf-8")
+    inventory = (
+        "## Authoritative commands\n\n"
+        "| Command | Applicability | Prerequisite | Expected evidence |\n"
+        "| --- | --- | --- | --- |\n"
+        "| `python scripts/check.py` | All changes | Python 3.11+ | exit 0 |\n"
+    )
+    (root / "docs").mkdir()
+    (root / "docs" / "command-inventory.md").write_text(inventory, encoding="utf-8")
+    instructions = "Run `python scripts/check.py` for repository validation.\n"
+    (root / "AGENTS.md").write_text(instructions, encoding="utf-8")
+    (root / "CONTRIBUTING.md").write_text(instructions, encoding="utf-8")
 
 
 def validate(root: Path) -> subprocess.CompletedProcess[str]:
@@ -75,6 +88,30 @@ class ValidatorTests(unittest.TestCase):
             self.assertIn("missing YAML front matter", result.stderr)
             self.assertIn("broken link", result.stderr)
             self.assertIn("invalid JSON", result.stderr)
+
+    def test_rejects_command_inventory_that_names_a_missing_script(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            create_repository(root)
+            (root / "docs" / "command-inventory.md").write_text(
+                "## Authoritative commands\n\n"
+                "| Command | Applicability | Evidence |\n"
+                "| --- | --- | --- |\n"
+                "| `python scripts/missing.py` | All changes | exit 0 |\n",
+                encoding="utf-8",
+            )
+            result = validate(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("command target does not exist", result.stderr)
+
+    def test_rejects_command_inventory_command_missing_from_agent_instructions(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            create_repository(root)
+            (root / "AGENTS.md").write_text("No commands listed.\n", encoding="utf-8")
+            result = validate(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("command inventory command is missing from AGENTS.md", result.stderr)
 
     def test_runs_issue_14_harness_and_propagates_failure(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

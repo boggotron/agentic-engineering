@@ -22,6 +22,8 @@ SKILL_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
 YAML_FIELD = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):(?:[ \t]+(.*))?$")
+COMMAND_INVENTORY = Path("docs/command-inventory.md")
+COMMAND_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|")
 
 
 @dataclass
@@ -208,6 +210,40 @@ def validate_docs(root: Path, validation: Validation) -> None:
                     validation.fail(f"{source.relative_to(root)}: broken heading link: {target}")
 
 
+def validate_command_inventory(root: Path, validation: Validation) -> None:
+    path = root / COMMAND_INVENTORY
+    if not path.is_file():
+        validation.fail(f"{COMMAND_INVENTORY}: missing command inventory")
+        return
+
+    commands: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = COMMAND_ROW.match(line)
+        if match:
+            commands.append(match.group(1))
+
+    for command in commands:
+        parts = command.split(maxsplit=1)
+        target = parts[1] if len(parts) == 2 and parts[0] == "python" else ""
+        target_path = (root / target).resolve() if target else root / "__missing_command_target__"
+        try:
+            target_path.relative_to(root.resolve())
+        except ValueError:
+            target_path = root / "__missing_command_target__"
+        if not target or not target_path.is_file():
+            validation.fail(f"command target does not exist: {command}")
+            continue
+        for instructions in (root / "AGENTS.md", root / "CONTRIBUTING.md"):
+            try:
+                text = instructions.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                text = ""
+            if command not in text:
+                validation.fail(
+                    f"command inventory command is missing from {instructions.name}: {command}"
+                )
+
+
 def validate_openai_skills_link(root: Path, validation: Validation) -> None:
     path = root / "adapters" / "openai" / "skills"
     if not path.is_symlink():
@@ -277,6 +313,7 @@ def main() -> int:
     validate_openai_marketplace(root, validation)
     validate_openai_skills_link(root, validation)
     validate_docs(root, validation)
+    validate_command_inventory(root, validation)
     run_package_checks(root, validation)
     if not args.skip_evals:
         run_evals(root, validation)
