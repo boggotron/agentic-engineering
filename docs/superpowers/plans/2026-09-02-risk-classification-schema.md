@@ -35,6 +35,8 @@
 **Files:**
 - Create: `schemas/risk-classification.schema.json`
 - Create: `docs/risk-classification.md`
+- Modify: `scripts/validate_repository.py`
+- Modify: `scripts/test_validate_repository.py`
 
 **Interfaces:**
 - Consumes: V2 risk levels and classifier factors from `docs/V2_ARCHITECTURE_AND_WORKSTREAM_PLAN.md`; authority boundary from `docs/security-and-autonomy-boundaries.md`.
@@ -48,9 +50,12 @@ Add a focused validator regression test that creates the required schema path wi
 
 Run `python scripts/test_validate_repository.py` and record the relevant failing assertion before implementation.
 
-- [ ] **Step 3: Create the schema and companion document**
+- [ ] **Step 3: Create the schema, companion document, and artifact check**
 
 Define closed top-level and nested object shapes, the exact version and risk enum, all required input categories, decision rationale and escalation fields, and portable documentation for R0-R4, stricter tie-breaking, unknown/conflicting signals, confidence, and human classification.
+Extend the dependency-free repository validator only far enough to reject an absent
+or structurally incomplete versioned schema artifact; fixture-record validation belongs
+to Task 2.
 
 - [ ] **Step 4: Run the focused test to verify GREEN**
 
