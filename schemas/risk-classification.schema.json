@@ -43,9 +43,9 @@
   "$defs": {
     "change_types": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["documentation_correction", "internal_refactor", "user_visible_feature", "dependency_change", "authentication_change", "authorization_change", "sensitive_data_change", "migration", "ci_change", "infrastructure_change", "production_effect", "destructive_effect", "security_control_change", "secret_authority_change"] } },
     "affected_boundaries": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["documentation", "internal_code", "user_interface", "dependency", "authentication", "authorization", "sensitive_data", "data_store", "ci", "infrastructure", "production", "security_control", "secret_management"] } },
-    "data_and_secrets": { "enum": ["none", "internal", "personal_data", "sensitive_data", "secret"] },
+    "data_and_secrets": { "enum": ["none", "internal", "personal_data", "sensitive_data", "secret", "unknown"] },
     "external_effects": { "enum": ["none", "user_visible", "third_party", "production"] },
-    "privilege": { "enum": ["none", "unchanged", "reduced", "increased", "secret_authority"] },
+    "privilege": { "enum": ["none", "unchanged", "reduced", "increased", "secret_authority", "unknown"] },
     "reversibility": { "enum": ["fully_reversible", "rollback_planned", "difficult_to_reverse", "irreversible", "unknown"] },
     "blast_radius": { "enum": ["local", "repository", "user_population", "organization", "production"] },
     "compatibility": { "enum": ["none", "internal", "consumer_compatible", "consumer_breaking", "unknown"] },

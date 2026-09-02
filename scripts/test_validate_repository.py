@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -104,6 +105,47 @@ def create_repository(root: Path) -> None:
         ),
         encoding="utf-8",
     )
+    fixtures = root / "evals" / "risk-classification"
+    fixtures.mkdir(parents=True)
+    record = {
+        "schema_version": 1,
+        "inputs": {
+            "change_types": ["documentation_correction"],
+            "affected_boundaries": ["documentation"],
+            "data_and_secrets": "none",
+            "external_effects": "none",
+            "privilege": "none",
+            "reversibility": "fully_reversible",
+            "blast_radius": "local",
+            "compatibility": "none",
+            "verification_strength": "strong",
+            "material_unknowns": [],
+            "material_conflicts": [],
+            "changes_classification_enforcement": False,
+        },
+        "decision": {
+            "risk_level": "R0",
+            "rationale": "fixture",
+            "confidence": "high",
+            "human_classification_required": False,
+            "escalation_reasons": [],
+        },
+    }
+    levels = {
+        "r0-documentation.json": "R0", "r1-refactor.json": "R1", "r2-feature.json": "R2",
+        "r3-sensitive-data.json": "R3", "r4-destructive-effect.json": "R4",
+        "boundary-stricter-signal.json": "R3", "human-unknown-input.json": "R3",
+        "human-conflicting-input.json": "R3", "human-policy-change.json": "R3",
+        "human-r4-authorization.json": "R4",
+    }
+    for name in (
+        "r0-documentation.json", "r1-refactor.json", "r2-feature.json", "r3-sensitive-data.json",
+        "r4-destructive-effect.json", "boundary-stricter-signal.json", "human-unknown-input.json",
+        "human-conflicting-input.json", "human-policy-change.json", "human-r4-authorization.json",
+    ):
+        fixture = json.loads(json.dumps(record))
+        fixture["decision"]["risk_level"] = levels[name]
+        (fixtures / name).write_text(json.dumps(fixture), encoding="utf-8")
     for name in NORMATIVE_SOURCES:
         (root / "docs" / name).write_text(
             f"# {name}\n\n" + "\n".join(NORMATIVE_METADATA) + "\n",
@@ -444,6 +486,27 @@ class ValidatorTests(unittest.TestCase):
             "schemas/risk-classification.schema.json: missing required schema field: $schema",
             result.stderr,
         )
+
+    def test_rejects_invalid_risk_classification_fixture_mutations(self) -> None:
+        source = VALIDATOR.parents[1]
+        cases = (
+            ("r0-documentation.json", lambda record: record.__setitem__("schema_version", 2), "unsupported schema_version"),
+            ("r1-refactor.json", lambda record: record.__setitem__("unexpected", True), "unknown top-level fields"),
+            ("human-unknown-input.json", lambda record: record["decision"].__setitem__("human_classification_required", False), "requires human_classification_required"),
+        )
+        for name, mutate, error in cases:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary) / "repository"
+                shutil.copytree(source, root, ignore=shutil.ignore_patterns(".git", ".superpowers", "__pycache__"))
+                path = root / "evals" / "risk-classification" / name
+                record = json.loads(path.read_text(encoding="utf-8"))
+                mutate(record)
+                path.write_text(json.dumps(record), encoding="utf-8")
+
+                result = validate(root)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(error, result.stderr)
 
     def test_rejects_malformed_yaml_front_matter(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

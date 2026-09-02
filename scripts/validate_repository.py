@@ -28,6 +28,21 @@ COMMAND_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|")
 CI_WORKFLOW = Path(".github/workflows/validate.yml")
 RISK_CLASSIFICATION_SCHEMA = Path("schemas/risk-classification.schema.json")
 RISK_SCHEMA_REQUIRED_FIELDS = ("$schema", "$id", "type", "additionalProperties", "required", "properties")
+RISK_FIXTURES = (
+    "r0-documentation.json", "r1-refactor.json", "r2-feature.json", "r3-sensitive-data.json",
+    "r4-destructive-effect.json", "boundary-stricter-signal.json", "human-unknown-input.json",
+    "human-conflicting-input.json", "human-policy-change.json", "human-r4-authorization.json",
+)
+RISK_FIXTURE_LEVELS = {
+    "r0-documentation.json": "R0", "r1-refactor.json": "R1", "r2-feature.json": "R2",
+    "r3-sensitive-data.json": "R3", "r4-destructive-effect.json": "R4",
+    "boundary-stricter-signal.json": "R3", "human-unknown-input.json": "R3",
+    "human-conflicting-input.json": "R3", "human-policy-change.json": "R3",
+    "human-r4-authorization.json": "R4",
+}
+RISK_RECORD_FIELDS = {"schema_version", "inputs", "decision"}
+RISK_INPUT_FIELDS = {"change_types", "affected_boundaries", "data_and_secrets", "external_effects", "privilege", "reversibility", "blast_radius", "compatibility", "verification_strength", "material_unknowns", "material_conflicts", "changes_classification_enforcement"}
+RISK_DECISION_FIELDS = {"risk_level", "rationale", "confidence", "human_classification_required", "escalation_reasons"}
 CI_PYTHON_RUN = re.compile(
     r"^\s*(?:-\s*)?run:\s*(['\"]?)(python(?:3(?:\.\d+)?)?\s+.+?)\1\s*$"
 )
@@ -188,6 +203,52 @@ def validate_risk_classification_schema(root: Path, validation: Validation) -> N
     required = data.get("required")
     if not isinstance(required, list) or set(required) != {"schema_version", "inputs", "decision"}:
         validation.fail(f"{RISK_CLASSIFICATION_SCHEMA}: must require schema_version, inputs, and decision")
+
+
+def validate_risk_classification_fixtures(root: Path, validation: Validation) -> None:
+    """Validate checked-in representative records without implementing a classifier."""
+    directory = root / "evals" / "risk-classification"
+    for name in RISK_FIXTURES:
+        path = directory / name
+        if not path.is_file():
+            validation.fail(f"evals/risk-classification: missing required fixture: {name}")
+            continue
+        data = read_json(path, validation)
+        if not isinstance(data, dict):
+            continue
+        if set(data) != RISK_RECORD_FIELDS:
+            validation.fail(f"{path.relative_to(root)}: unknown top-level fields or missing record fields")
+            continue
+        if data.get("schema_version") != 1:
+            validation.fail(f"{path.relative_to(root)}: unsupported schema_version")
+        inputs = data.get("inputs")
+        decision = data.get("decision")
+        if not isinstance(inputs, dict) or set(inputs) != RISK_INPUT_FIELDS:
+            validation.fail(f"{path.relative_to(root)}: inputs must contain exactly the version-1 fields")
+            continue
+        if not isinstance(decision, dict) or set(decision) != RISK_DECISION_FIELDS:
+            validation.fail(f"{path.relative_to(root)}: decision must contain exactly the version-1 fields")
+            continue
+        if decision.get("risk_level") not in {"R0", "R1", "R2", "R3", "R4"} or not isinstance(decision.get("rationale"), str) or not decision["rationale"]:
+            validation.fail(f"{path.relative_to(root)}: decision requires a valid risk_level and non-empty rationale")
+        elif decision["risk_level"] != RISK_FIXTURE_LEVELS[name]:
+            validation.fail(f"{path.relative_to(root)}: expected representative risk level {RISK_FIXTURE_LEVELS[name]}")
+        reasons = decision.get("escalation_reasons")
+        human_required = decision.get("human_classification_required")
+        if not isinstance(reasons, list) or not isinstance(human_required, bool):
+            validation.fail(f"{path.relative_to(root)}: decision requires escalation reasons and human_classification_required")
+            continue
+        required_reason = None
+        if inputs["material_unknowns"]:
+            required_reason = "unknown_material_input"
+        elif inputs["material_conflicts"]:
+            required_reason = "conflicting_material_input"
+        elif inputs["changes_classification_enforcement"]:
+            required_reason = "classification_enforcement_change"
+        elif "r4_action_authorization" in reasons:
+            required_reason = "r4_action_authorization"
+        if required_reason and (not human_required or required_reason not in reasons):
+            validation.fail(f"{path.relative_to(root)}: {required_reason} requires human_classification_required")
 
 
 def validate_openai_marketplace(root: Path, validation: Validation) -> None:
@@ -468,6 +529,7 @@ def main() -> int:
     validate_skills(root, validation)
     validate_json_artifacts(root, validation)
     validate_risk_classification_schema(root, validation)
+    validate_risk_classification_fixtures(root, validation)
     validate_openai_marketplace(root, validation)
     validate_openai_skills_link(root, validation)
     validate_docs(root, validation)
