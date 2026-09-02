@@ -48,6 +48,13 @@ with the generated package:
 claude --plugin-dir /tmp/agentic-engineering-claude
 ```
 
+For a noninteractive clean-install smoke check, require the controller to
+consult both packaged canonical references:
+
+```sh
+claude --plugin-dir /tmp/agentic-engineering-claude --no-session-persistence --print 'Use the agentic-engineering:engineering-workflow controller and its linked canonical methodology and capability contract. Reply in exactly two lines: first, the lifecycle stage immediately after PLAN; second, what to select if a native capability is missing or insufficient.'
+```
+
 Inside Claude Code, use `/help` to confirm the namespaced Skills are present,
 then invoke one, for example:
 

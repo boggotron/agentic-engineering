@@ -13,7 +13,16 @@ from urllib.parse import unquote, urlsplit
 from package_plugin import SHARED_SKILLS, package
 
 
-MARKDOWN_LINK = re.compile(r"(?<!!)\]\((<[^>]+>|[^)\s]+)\)")
+INLINE_MARKDOWN_LINK = re.compile(
+    r"(?<!!)\]\(\s*(?P<destination><[^>]+>|[^\s)]+)"
+    r"(?:\s+(?:\"[^\"]*\"|'[^']*'|\([^)]*\)))?\s*\)"
+)
+REFERENCE_MARKDOWN_LINK = re.compile(r"(?<!!)\[[^]]+\]\[(?P<label>[^]]+)\]")
+REFERENCE_MARKDOWN_DEFINITION = re.compile(
+    r"^[ \t]{0,3}\[(?P<label>[^]]+)\]:[ \t]*"
+    r"(?P<destination><[^>]+>|[^\s]+)(?:[ \t]+.*)?$",
+    re.MULTILINE,
+)
 
 
 def skill_files(root: Path) -> dict[Path, bytes]:
@@ -46,13 +55,45 @@ def package_files(root: Path) -> dict[Path, Path]:
     return {
         path.relative_to(root): path
         for path in sorted(root.rglob("*"))
-        if path.is_file()
+        if path.is_file() and not path.is_symlink()
     }
 
 
 def digest(path: Path) -> str:
     """Return the SHA-256 digest of a package file."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def artifact_entry_errors(output: Path) -> list[str]:
+    """Return errors for symbolic links and non-regular package entries."""
+    errors: list[str] = []
+    for path in sorted(output.rglob("*")):
+        relative = path.relative_to(output)
+        if path.is_symlink():
+            errors.append(f"invalid package artifact entry: {relative} (symbolic link)")
+        elif not path.is_file() and not path.is_dir():
+            errors.append(f"invalid package artifact entry: {relative} (not a regular file or directory)")
+    return errors
+
+
+def markdown_destination_errors(
+    package_root: Path, relative: Path, document: Path, raw_target: str
+) -> list[str]:
+    """Validate one local Markdown destination from a packaged document."""
+    target = urlsplit(raw_target.strip("<>"))
+    if target.scheme or target.netloc or not target.path.endswith(".md"):
+        return []
+    destination = (document.parent / unquote(target.path)).resolve()
+    if not destination.is_relative_to(package_root):
+        return [f"packaged link escapes package: {relative} -> {target.path}"]
+    if not destination.is_file() or destination.is_symlink():
+        return [f"broken packaged link: {relative} -> {target.path}"]
+    return []
+
+
+def normalized_reference_label(label: str) -> str:
+    """Normalize a Markdown reference label for case-insensitive matching."""
+    return " ".join(label.split()).casefold()
 
 
 def packaged_link_errors(output: Path) -> list[str]:
@@ -62,16 +103,20 @@ def packaged_link_errors(output: Path) -> list[str]:
     for relative, document in package_files(output).items():
         if document.suffix.lower() != ".md":
             continue
-        for match in MARKDOWN_LINK.finditer(document.read_text(encoding="utf-8")):
-            raw_target = match.group(1).strip("<>")
-            target = urlsplit(raw_target)
-            if target.scheme or target.netloc or not target.path.endswith(".md"):
+        text = document.read_text(encoding="utf-8")
+        for match in INLINE_MARKDOWN_LINK.finditer(text):
+            errors.extend(markdown_destination_errors(package_root, relative, document, match["destination"]))
+
+        definitions = {
+            normalized_reference_label(match["label"]): match["destination"]
+            for match in REFERENCE_MARKDOWN_DEFINITION.finditer(text)
+        }
+        for match in REFERENCE_MARKDOWN_LINK.finditer(text):
+            label = normalized_reference_label(match["label"])
+            if label not in definitions:
+                errors.append(f"broken packaged reference link: {relative} -> [{match['label']}]")
                 continue
-            destination = (document.parent / unquote(target.path)).resolve()
-            if not destination.is_relative_to(package_root):
-                errors.append(f"packaged link escapes package: {relative} -> {raw_target}")
-            elif not destination.is_file():
-                errors.append(f"broken packaged link: {relative} -> {raw_target}")
+            errors.extend(markdown_destination_errors(package_root, relative, document, definitions[label]))
     return errors
 
 
@@ -81,16 +126,17 @@ def validate_package(output: Path) -> list[str]:
     if not output.is_dir():
         return [f"package directory is missing: {output}"]
 
+    errors = artifact_entry_errors(output)
     with tempfile.TemporaryDirectory(prefix="agentic-engineering-claude-expected-") as temporary:
         expected_root = Path(temporary) / "plugin"
         package(expected_root)
         expected = package_files(expected_root)
 
         actual = package_files(output)
-        errors = [
+        errors.extend(
             f"missing expected package file: {relative}"
             for relative in sorted(expected.keys() - actual.keys())
-        ]
+        )
         errors.extend(
             f"unexpected package file: {relative}"
             for relative in sorted(actual.keys() - expected.keys())

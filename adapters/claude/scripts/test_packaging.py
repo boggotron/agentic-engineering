@@ -94,6 +94,58 @@ class PackagingTests(unittest.TestCase):
 
         self.assertIn("digest divergence: skills/engineering-workflow/SKILL.md", errors)
 
+    def test_package_validation_rejects_a_skill_symlink(self) -> None:
+        """Catch an expected package file replaced with a symlink outside the artifact."""
+        with tempfile.TemporaryDirectory(prefix="agentic-engineering-claude-") as temporary:
+            output = Path(temporary) / "plugin"
+            package(output)
+            skill = output / "skills" / "engineering-workflow" / "SKILL.md"
+            external = Path(temporary) / "external-skill.md"
+            external.write_text("external", encoding="utf-8")
+            skill.unlink()
+            skill.symlink_to(external)
+
+            errors = validate_package(output)
+
+        self.assertIn("invalid package artifact entry: skills/engineering-workflow/SKILL.md (symbolic link)", errors)
+
+    def test_package_validation_rejects_a_directory_symlink(self) -> None:
+        """Catch an unexpected directory symlink that could conceal external content."""
+        with tempfile.TemporaryDirectory(prefix="agentic-engineering-claude-") as temporary:
+            output = Path(temporary) / "plugin"
+            package(output)
+            external = Path(temporary) / "external-directory"
+            external.mkdir()
+            (output / "linked-directory").symlink_to(external, target_is_directory=True)
+
+            errors = validate_package(output)
+
+        self.assertIn("invalid package artifact entry: linked-directory (symbolic link)", errors)
+
+    def test_package_validation_reports_an_inline_link_escape_with_a_title(self) -> None:
+        """Catch an escaping inline Markdown link whose destination has an optional title."""
+        with tempfile.TemporaryDirectory(prefix="agentic-engineering-claude-") as temporary:
+            output = Path(temporary) / "plugin"
+            package(output)
+            document = output / "docs" / "methodology.md"
+            document.write_text('[x](../../outside.md "title")\n', encoding="utf-8")
+
+            errors = validate_package(output)
+
+        self.assertIn('packaged link escapes package: docs/methodology.md -> ../../outside.md', errors)
+
+    def test_package_validation_reports_a_reference_link_escape(self) -> None:
+        """Catch an escaping package-local reference-style Markdown link."""
+        with tempfile.TemporaryDirectory(prefix="agentic-engineering-claude-") as temporary:
+            output = Path(temporary) / "plugin"
+            package(output)
+            document = output / "docs" / "methodology.md"
+            document.write_text('[x][ref]\n\n[ref]: ../../outside.md\n', encoding="utf-8")
+
+            errors = validate_package(output)
+
+        self.assertIn('packaged link escapes package: docs/methodology.md -> ../../outside.md', errors)
+
     def test_existing_file_output_is_an_argparse_error(self) -> None:
         with tempfile.TemporaryDirectory(prefix="agentic-engineering-claude-") as temporary:
             output = Path(temporary) / "not-a-directory"
