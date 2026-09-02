@@ -52,7 +52,7 @@ For a noninteractive clean-install smoke check, require the controller to
 consult both packaged canonical references:
 
 ```sh
-claude --plugin-dir /tmp/agentic-engineering-claude --no-session-persistence --print 'Use the agentic-engineering:engineering-workflow controller and its linked canonical methodology and capability contract. Reply in exactly two lines: first, the lifecycle stage immediately after PLAN; second, what to select if a native capability is missing or insufficient.'
+claude --plugin-dir /tmp/agentic-engineering-claude --no-session-persistence --print 'Use the agentic-engineering:engineering-workflow controller. Read its packaged docs/methodology.md and docs/capability-contract.md links; do not answer from the Skill text alone. Reply in exactly two lines: first, the control state that the methodology places between CI/PR and human approval; second, the Isolation fallback the capability contract requires when Git worktree is unavailable.'
 ```
 
 Inside Claude Code, use `/help` to confirm the namespaced Skills are present,

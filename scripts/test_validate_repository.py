@@ -289,6 +289,20 @@ class ValidatorTests(unittest.TestCase):
             self.assertIn("broken link", result.stderr)
             self.assertIn("invalid JSON", result.stderr)
 
+    def test_ignores_internal_superpowers_markdown_artifacts(self) -> None:
+        """Internal ignored task artifacts must not participate in repository link checks."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            create_repository(root)
+            write_valid_precedence_document(root)
+            artifact = root / ".superpowers" / "sdd" / "task-report.md"
+            artifact.parent.mkdir(parents=True)
+            artifact.write_text("[Outside](../../outside.md)\n", encoding="utf-8")
+
+            result = validate(root)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_rejects_command_inventory_that_names_a_missing_script(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

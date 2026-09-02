@@ -223,7 +223,7 @@ def anchors(path: Path) -> set[str]:
 def validate_docs(root: Path, validation: Validation) -> None:
     markdown_files = sorted(root.rglob("*.md"))
     for source in markdown_files:
-        if ".git" in source.parts:
+        if ".git" in source.parts or ".superpowers" in source.parts:
             continue
         text = source.read_text(encoding="utf-8")
         for raw_target in MARKDOWN_LINK.findall(text):
