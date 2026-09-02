@@ -143,6 +143,17 @@ class ValidatorTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("architecture plan must not claim to be canonical", result.stderr)
 
+    def test_accepts_architecture_plan_reference_to_normative_methodology(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            create_repository(root)
+            write_valid_precedence_document(root)
+            (root / "docs" / "CROSS_PLATFORM_REPO_PLAN.md").write_text(
+                "The cross-platform repository plan references the canonical methodology.\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(validate(root).returncode, 0)
+
     def test_rejects_malformed_skill_broken_docs_and_invalid_package(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

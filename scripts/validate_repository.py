@@ -45,7 +45,8 @@ ARCHITECTURE_PLAN_AUTHORITY_CLAIM = re.compile(
     r"^#{1,6}\s+canonical\b|"
     r"\bthis is the canonical (?:engineering )?methodology\b|"
     r"\b(?:this|the)(?:\s+(?:cross-platform|architecture|repository)){0,2}\s+"
-    r"(?:plan|document|roadmap)\b[^\n.]{0,80}\b(?:canonical|authoritative|normative)\b",
+    r"(?:plan|document|roadmap)\b\s+(?:is|remains|serves\s+as|acts\s+as)\s+"
+    r"(?:the\s+)?(?:canonical|authoritative|normative)\b",
     re.IGNORECASE | re.MULTILINE,
 )
 
