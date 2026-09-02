@@ -89,6 +89,21 @@ def create_repository(root: Path) -> None:
     )
     (root / "docs").mkdir()
     (root / "docs" / "command-inventory.md").write_text(inventory, encoding="utf-8")
+    schemas = root / "schemas"
+    schemas.mkdir()
+    (schemas / "risk-classification.schema.json").write_text(
+        json.dumps(
+            {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "https://example.invalid/risk-classification.schema.json",
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["schema_version", "inputs", "decision"],
+                "properties": {},
+            }
+        ),
+        encoding="utf-8",
+    )
     for name in NORMATIVE_SOURCES:
         (root / "docs" / name).write_text(
             f"# {name}\n\n" + "\n".join(NORMATIVE_METADATA) + "\n",
@@ -409,11 +424,26 @@ class ValidatorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             create_repository(root)
-            (root / "schemas").mkdir()
             (root / "schemas" / "plan.schema.json").write_text("not JSON", encoding="utf-8")
             result = validate(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("schemas/plan.schema.json: invalid JSON", result.stderr)
+
+    def test_rejects_incomplete_risk_classification_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            create_repository(root)
+            write_valid_precedence_document(root)
+            schemas = root / "schemas"
+            (schemas / "risk-classification.schema.json").write_text("{}\n", encoding="utf-8")
+
+            result = validate(root)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "schemas/risk-classification.schema.json: missing required schema field: $schema",
+            result.stderr,
+        )
 
     def test_rejects_malformed_yaml_front_matter(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

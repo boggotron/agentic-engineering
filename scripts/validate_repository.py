@@ -26,6 +26,8 @@ YAML_FIELD = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):(?:[ \t]+(.*))?$")
 COMMAND_INVENTORY = Path("docs/command-inventory.md")
 COMMAND_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|")
 CI_WORKFLOW = Path(".github/workflows/validate.yml")
+RISK_CLASSIFICATION_SCHEMA = Path("schemas/risk-classification.schema.json")
+RISK_SCHEMA_REQUIRED_FIELDS = ("$schema", "$id", "type", "additionalProperties", "required", "properties")
 CI_PYTHON_RUN = re.compile(
     r"^\s*(?:-\s*)?run:\s*(['\"]?)(python(?:3(?:\.\d+)?)?\s+.+?)\1\s*$"
 )
@@ -165,6 +167,27 @@ def validate_json_artifacts(root: Path, validation: Validation) -> None:
             validation.fail(f"{path.relative_to(root)}: schema must be a JSON object")
         elif "$schema" in data and not isinstance(data["$schema"], str):
             validation.fail(f"{path.relative_to(root)}: $schema must be a string")
+
+
+def validate_risk_classification_schema(root: Path, validation: Validation) -> None:
+    """Validate the stable envelope of Issue #74's versioned risk contract."""
+    path = root / RISK_CLASSIFICATION_SCHEMA
+    if not path.is_file():
+        validation.fail(f"{RISK_CLASSIFICATION_SCHEMA}: missing required versioned risk classification schema")
+        return
+    data = read_json(path, validation)
+    if not isinstance(data, dict):
+        return
+    for field in RISK_SCHEMA_REQUIRED_FIELDS:
+        if field not in data:
+            validation.fail(f"{RISK_CLASSIFICATION_SCHEMA}: missing required schema field: {field}")
+    if data.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
+        validation.fail(f"{RISK_CLASSIFICATION_SCHEMA}: must declare JSON Schema Draft 2020-12")
+    if data.get("type") != "object" or data.get("additionalProperties") is not False:
+        validation.fail(f"{RISK_CLASSIFICATION_SCHEMA}: top-level record must be a closed object")
+    required = data.get("required")
+    if not isinstance(required, list) or set(required) != {"schema_version", "inputs", "decision"}:
+        validation.fail(f"{RISK_CLASSIFICATION_SCHEMA}: must require schema_version, inputs, and decision")
 
 
 def validate_openai_marketplace(root: Path, validation: Validation) -> None:
@@ -444,6 +467,7 @@ def main() -> int:
     validation = Validation(errors=[])
     validate_skills(root, validation)
     validate_json_artifacts(root, validation)
+    validate_risk_classification_schema(root, validation)
     validate_openai_marketplace(root, validation)
     validate_openai_skills_link(root, validation)
     validate_docs(root, validation)
