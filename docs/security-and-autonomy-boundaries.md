@@ -1,5 +1,9 @@
 # Security and autonomy boundaries
 
+- **Owner:** `@boggotron`
+- **Version:** `1.0`
+- **Review date:** `2026-09-02`
+
 This document is the normative source for portable authority and approval
 boundaries. It complements the lifecycle in the [methodology](methodology.md)
 and the host guarantees in the [capability contract](capability-contract.md).

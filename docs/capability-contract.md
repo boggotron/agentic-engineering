@@ -1,5 +1,9 @@
 # Capability contract and host abstraction
 
+- **Owner:** `@boggotron`
+- **Version:** `1.0`
+- **Review date:** `2026-09-02`
+
 ## Purpose
 
 This contract specifies the capabilities an engineering host must provide to

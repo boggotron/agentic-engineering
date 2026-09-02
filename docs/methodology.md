@@ -1,5 +1,9 @@
 # Canonical engineering methodology
 
+- **Owner:** `@boggotron`
+- **Version:** `1.0`
+- **Review date:** `2026-09-02`
+
 This document is the authoritative, host-neutral engineering process for this
 repository. It defines the outcomes an agent must achieve; it does not prescribe
 particular commands, tools, or agent harness features.

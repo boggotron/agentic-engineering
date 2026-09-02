@@ -9,6 +9,7 @@ than a replacement for host-native plugin validators or an evaluation harness.
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import re
 import subprocess
@@ -24,6 +25,10 @@ HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
 YAML_FIELD = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):(?:[ \t]+(.*))?$")
 COMMAND_INVENTORY = Path("docs/command-inventory.md")
 COMMAND_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|")
+CI_WORKFLOW = Path(".github/workflows/validate.yml")
+CI_PYTHON_RUN = re.compile(
+    r"^\s*(?:-\s*)?run:\s*(['\"]?)(python(?:3(?:\.\d+)?)?\s+.+?)\1\s*$"
+)
 PRECEDENCE_DOCUMENT = Path("docs/instruction-precedence.md")
 NORMATIVE_SOURCES = (
     "methodology.md",
@@ -41,8 +46,13 @@ PRECEDENCE_TEXT = (
     "Repository instructions and the three normative sources prevail over nested instructions, memory, and unvalidated task context.",
     "Current repository state and revision-bound Issue/PR/CI evidence prevail over stale memory and agent observations.",
 )
+NORMATIVE_OWNER = "@boggotron"
+NORMATIVE_METADATA = re.compile(
+    r"^- \*\*(Owner|Version|Review date):\*\* `([^`]+)`\s*$",
+    re.MULTILINE,
+)
 ARCHITECTURE_PLAN_AUTHORITY_CLAIM = re.compile(
-    r"^#{1,6}\s+canonical\b|"
+    r"^#{1,6}\s+(?:\d+(?:\.\d+)*[.)]?\s+)?canonical\b|"
     r"\bthis is the canonical (?:engineering )?methodology\b|"
     r"\b(?:this|the)(?:\s+(?:cross-platform|architecture|repository)){0,2}\s+"
     r"(?:plan|document|roadmap)\b\s+(?:is|remains|serves\s+as|acts\s+as)\s+"
@@ -247,6 +257,19 @@ def validate_command_inventory(root: Path, validation: Validation) -> None:
         if match:
             commands.append(match.group(1))
 
+    workflow = root / CI_WORKFLOW
+    try:
+        workflow_text = workflow.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        validation.fail(f"{CI_WORKFLOW}: missing or unreadable CI workflow")
+        ci_commands: list[str] = []
+    else:
+        ci_commands = []
+        for line in workflow_text.splitlines():
+            match = CI_PYTHON_RUN.match(line)
+            if match:
+                ci_commands.append(match.group(2))
+
     for command in commands:
         parts = command.split(maxsplit=1)
         target = parts[1] if len(parts) == 2 and parts[0] == "python" else ""
@@ -266,6 +289,55 @@ def validate_command_inventory(root: Path, validation: Validation) -> None:
             if command not in text:
                 validation.fail(
                     f"command inventory command is missing from {instructions.name}: {command}"
+                )
+
+    for command in ci_commands:
+        if command not in commands:
+            validation.fail(
+                f"{COMMAND_INVENTORY}: CI Python command is missing from command inventory: {command}"
+            )
+    for command in commands:
+        if command not in ci_commands:
+            validation.fail(
+                f"{CI_WORKFLOW}: command inventory command is missing from CI workflow: {command}"
+            )
+
+
+def validate_normative_document_metadata(root: Path, validation: Validation) -> None:
+    """Require stable ownership and versioned review metadata on policy sources."""
+    for source in NORMATIVE_SOURCES:
+        relative = Path("docs") / source
+        path = root / relative
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            validation.fail(f"{relative}: missing normative document")
+            continue
+
+        metadata = dict(NORMATIVE_METADATA.findall(text))
+        for field in ("Owner", "Version", "Review date"):
+            if field not in metadata:
+                validation.fail(f"{relative}: missing required metadata: {field}")
+
+        owner = metadata.get("Owner")
+        if owner is not None and owner != NORMATIVE_OWNER:
+            validation.fail(
+                f"{relative}: Owner must be stable repository owner {NORMATIVE_OWNER}"
+            )
+
+        version = metadata.get("Version")
+        if version is not None and not re.fullmatch(r"[1-9]\d*\.\d+(?:\.\d+)?", version):
+            validation.fail(f"{relative}: Version must be numeric (for example, 1.0)")
+
+        review_date = metadata.get("Review date")
+        if review_date is not None:
+            try:
+                parsed_date = datetime.date.fromisoformat(review_date)
+            except ValueError:
+                parsed_date = None
+            if parsed_date is None or parsed_date.isoformat() != review_date:
+                validation.fail(
+                    f"{relative}: Review date must be an ISO date (YYYY-MM-DD)"
                 )
 
 
@@ -373,6 +445,7 @@ def main() -> int:
     validate_docs(root, validation)
     validate_command_inventory(root, validation)
     validate_instruction_precedence(root, validation)
+    validate_normative_document_metadata(root, validation)
     run_package_checks(root, validation)
     if not args.skip_evals:
         run_evals(root, validation)
