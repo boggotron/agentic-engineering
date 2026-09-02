@@ -31,9 +31,11 @@ git status --short
 rg --files -g '*.md'
 ```
 
-Validate changed relative Markdown links and headings manually until a
-repository validation command is added. Record the exact checks run and any
-intentionally unavailable checks in the pull request evidence.
+The repository validator checks relative Markdown links and heading fragments.
+For documentation-only changes, supplement that automated coverage with a
+manual review of changed headings, links, and rendered readability. Record the
+exact checks run and any intentionally unavailable checks in the pull request
+evidence.
 
 ## Documentation conventions
 
