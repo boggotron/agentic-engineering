@@ -27,7 +27,7 @@
 - `docs/schema-architecture.md` explains the canonical envelope boundary, version/compatibility/migration rules, digest/reference semantics, and downstream composition contract.
 - `schemas/evidence-envelope.schema.json` is the JSON Schema Draft 2020-12 shape for one common evidence envelope.
 - `schemas/evidence-compatibility.json` is the machine-readable registry of the supported envelope schema version and its compatibility policy.
-- `schemas/fixtures/evidence-envelope/*.json` supplies valid, extension, malformed, incompatible-version, and stale-reference evidence bundles.
+- `schemas/fixtures/evidence-envelope/*.json` supplies valid, extension, malformed, incompatible-version, and stale-reference evidence bundles; `schemas/fixtures/evidence-envelope-expectations.json` keeps fixture outcomes outside the envelope.
 - `scripts/validate_evidence_schema.py` validates the envelope schema/registry and every fixture bundle using only the standard library.
 - `scripts/test_validate_evidence_schema.py` regression-tests the semantic validator and fixture outcomes.
 
@@ -46,7 +46,7 @@
 **Interfaces:**
 - Consumes: Issue #87’s shared evidence requirements and the P0-10 Layer 6 evidence list.
 - Produces: an envelope requiring `schema`, `schema_version`, `evidence_type`, `id`, `repository`, `revision`, `policy`, `produced_at`, `actor`, and `payload`; optional `provenance`, `references`, and `extensions`.
-- Produces: fixture documents with `expectation` (`valid` or `invalid`) for the dependency-free validator.
+- Produces: a fixture outcome manifest mapping each fixture filename to `valid` or `invalid` for the dependency-free validator.
 
 - [ ] **Step 1: Define the desired fixture assertions before writing the schema**
 

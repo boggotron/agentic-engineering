@@ -20,7 +20,7 @@ TYPE_NAME = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$")
 EVIDENCE_ID = re.compile(r"^urn:agentic-engineering:evidence:[a-z0-9][a-z0-9-]{0,127}$")
 ROLE = re.compile(r"^[a-z][a-z0-9-]*$")
 REQUIRED = {"schema", "schema_version", "evidence_type", "id", "repository", "revision", "policy", "produced_at", "actor", "payload"}
-ALLOWED = REQUIRED | {"provenance", "references", "extensions", "expectation"}
+ALLOWED = REQUIRED | {"provenance", "references", "extensions"}
 RELATIONS = {"derived-from", "supports", "supersedes", "describes"}
 
 
@@ -156,17 +156,24 @@ def validate(root: Path, fixtures: Path | None = None) -> list[str]:
     if family is None:
         return errors
     fixture_root = fixtures or root / "schemas/fixtures/evidence-envelope"
+    expectations = read_json(root / "schemas/fixtures/evidence-envelope-expectations.json", errors)
+    if not isinstance(expectations, dict) or any(value not in {"valid", "invalid"} for value in expectations.values()):
+        errors.append("evidence fixture expectations must map fixture names to valid or invalid")
+        return errors
     for path in sorted(fixture_root.glob("*.json")):
         document_errors: list[str] = []
         document = read_json(path, document_errors)
         if document is not None:
             document_errors.extend(validate_envelope(document, path, root, family))
-        expectation = document.get("expectation") if isinstance(document, dict) else None
+        expectation = expectations.get(path.name)
         actual = "valid" if not document_errors else "invalid"
         if expectation not in {"valid", "invalid"}:
             errors.append(f"{path.relative_to(root)}: expectation must be valid or invalid")
         elif expectation != actual:
             errors.extend(document_errors or [f"{path.relative_to(root)}: expected {expectation}, got {actual}"])
+    expected_names = {path.name for path in fixture_root.glob("*.json")}
+    if set(expectations) != expected_names:
+        errors.append("evidence fixture expectations must cover exactly the fixture corpus")
     return errors
 
 
