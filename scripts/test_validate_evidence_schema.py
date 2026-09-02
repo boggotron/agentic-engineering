@@ -201,6 +201,18 @@ class EvidenceSchemaValidationTests(unittest.TestCase):
                 )
                 self.assertEqual(not shape_errors, expectations[path.name])
 
+    def test_rejects_actor_enum_schema_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            copy_schema_root(root)
+            path = root / "schemas/evidence-envelope.schema.json"
+            schema = json.loads(path.read_text(encoding="utf-8"))
+            schema["$defs"]["actor"]["properties"]["kind"]["enum"] = ["human", "service"]
+            path.write_text(json.dumps(schema), encoding="utf-8")
+            result = run_validator(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("actor kind enum", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

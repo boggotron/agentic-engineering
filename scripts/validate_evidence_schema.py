@@ -55,6 +55,12 @@ def validate_schema_files(root: Path) -> tuple[dict[str, object] | None, list[st
             errors.append("evidence envelope schema required fields do not match the common contract")
         if schema.get("additionalProperties") is not False:
             errors.append("evidence envelope schema must reject unknown top-level fields")
+        definitions = schema.get("$defs")
+        actor_definition = definitions.get("actor") if isinstance(definitions, dict) else None
+        actor_properties = actor_definition.get("properties") if isinstance(actor_definition, dict) else None
+        actor_kind = actor_properties.get("kind") if isinstance(actor_properties, dict) else None
+        if not isinstance(actor_kind, dict) or actor_kind.get("enum") != ["human", "agent", "service"]:
+            errors.append("evidence envelope schema actor kind enum must be human, agent, service")
     if not isinstance(registry, dict):
         errors.append("evidence compatibility registry must be a JSON object")
         return None, errors
