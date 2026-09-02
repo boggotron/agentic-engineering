@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/boggotron/agentic-engineering/schemas/risk-classification.schema.json",
+  "title": "Risk classification record",
+  "description": "Version 1 record of classification inputs and a conservative R0-R4 decision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "inputs", "decision"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["change_types", "affected_boundaries", "data_and_secrets", "external_effects", "privilege", "reversibility", "blast_radius", "compatibility", "verification_strength", "material_unknowns", "material_conflicts", "changes_classification_enforcement", "security_control_direction", "action_authorization_required"],
+      "properties": {
+        "change_types": { "$ref": "#/$defs/change_types" },
+        "affected_boundaries": { "$ref": "#/$defs/affected_boundaries" },
+        "data_and_secrets": { "$ref": "#/$defs/data_and_secrets" },
+        "external_effects": { "$ref": "#/$defs/external_effects" },
+        "privilege": { "$ref": "#/$defs/privilege" },
+        "reversibility": { "$ref": "#/$defs/reversibility" },
+        "blast_radius": { "$ref": "#/$defs/blast_radius" },
+        "compatibility": { "$ref": "#/$defs/compatibility" },
+        "verification_strength": { "$ref": "#/$defs/verification_strength" },
+        "material_unknowns": { "$ref": "#/$defs/nonempty_strings" },
+        "material_conflicts": { "$ref": "#/$defs/nonempty_strings" },
+        "changes_classification_enforcement": { "type": "boolean" },
+        "security_control_direction": { "$ref": "#/$defs/security_control_direction" },
+        "action_authorization_required": { "type": "boolean" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["risk_level", "rationale", "confidence", "human_classification_required", "escalation_reasons"],
+      "properties": {
+        "risk_level": { "enum": ["R0", "R1", "R2", "R3", "R4"] },
+        "rationale": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["low", "medium", "high"] },
+        "human_classification_required": { "type": "boolean" },
+        "escalation_reasons": { "type": "array", "uniqueItems": true, "items": { "enum": ["unknown_material_input", "conflicting_material_input", "stricter_applicable_signal", "classification_enforcement_change", "r4_action_authorization"] } }
+      }
+    }
+  },
+  "$defs": {
+    "change_types": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["documentation_correction", "internal_refactor", "user_visible_feature", "dependency_change", "authentication_change", "authorization_change", "sensitive_data_change", "migration", "ci_change", "infrastructure_change", "production_effect", "destructive_effect", "security_control_change", "secret_authority_change", "unknown"] } },
+    "affected_boundaries": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["documentation", "internal_code", "user_interface", "dependency", "authentication", "authorization", "sensitive_data", "data_store", "ci", "infrastructure", "production", "security_control", "secret_management", "unknown"] } },
+    "data_and_secrets": { "enum": ["none", "internal", "personal_data", "sensitive_data", "secret", "unknown"] },
+    "external_effects": { "enum": ["none", "user_visible", "third_party", "production", "unknown"] },
+    "privilege": { "enum": ["none", "unchanged", "reduced", "increased", "secret_authority", "unknown"] },
+    "reversibility": { "enum": ["fully_reversible", "rollback_planned", "difficult_to_reverse", "irreversible", "unknown"] },
+    "blast_radius": { "enum": ["local", "repository", "user_population", "organization", "production", "unknown"] },
+    "compatibility": { "enum": ["none", "internal", "consumer_compatible", "consumer_breaking", "unknown"] },
+    "verification_strength": { "enum": ["strong", "partial", "insufficient", "unknown"] },
+    "security_control_direction": { "enum": ["not_applicable", "strengthened", "unchanged", "weakened", "unknown"] },
+    "nonempty_strings": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+  }
+}

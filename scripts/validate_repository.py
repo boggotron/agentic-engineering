@@ -26,6 +26,25 @@ YAML_FIELD = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):(?:[ \t]+(.*))?$")
 COMMAND_INVENTORY = Path("docs/command-inventory.md")
 COMMAND_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|")
 CI_WORKFLOW = Path(".github/workflows/validate.yml")
+RISK_CLASSIFICATION_SCHEMA = Path("schemas/risk-classification.schema.json")
+RISK_SCHEMA_REQUIRED_FIELDS = ("$schema", "$id", "type", "additionalProperties", "required", "properties")
+RISK_FIXTURES = (
+    "r0-documentation.json", "r1-refactor.json", "r2-feature.json", "r3-sensitive-data.json",
+    "r4-destructive-effect.json", "boundary-stricter-signal.json", "human-unknown-input.json",
+    "human-conflicting-input.json", "human-policy-change.json", "human-r4-authorization.json", "r4-security-control-weakening.json", "human-unknown-conflicting-inputs.json",
+)
+RISK_FIXTURE_LEVELS = {
+    "r0-documentation.json": "R0", "r1-refactor.json": "R1", "r2-feature.json": "R2",
+    "r3-sensitive-data.json": "R3", "r4-destructive-effect.json": "R4",
+    "boundary-stricter-signal.json": "R3", "human-unknown-input.json": "R3",
+    "human-conflicting-input.json": "R3", "human-policy-change.json": "R3",
+    "human-r4-authorization.json": "R4", "r4-security-control-weakening.json": "R4", "human-unknown-conflicting-inputs.json": "R3",
+}
+RISK_RECORD_FIELDS = {"schema_version", "inputs", "decision"}
+RISK_INPUT_FIELDS = {"change_types", "affected_boundaries", "data_and_secrets", "external_effects", "privilege", "reversibility", "blast_radius", "compatibility", "verification_strength", "material_unknowns", "material_conflicts", "changes_classification_enforcement", "security_control_direction", "action_authorization_required"}
+RISK_DECISION_FIELDS = {"risk_level", "rationale", "confidence", "human_classification_required", "escalation_reasons"}
+RISK_SCALAR_ENUMS = {"data_and_secrets": {"none", "internal", "personal_data", "sensitive_data", "secret", "unknown"}, "external_effects": {"none", "user_visible", "third_party", "production", "unknown"}, "privilege": {"none", "unchanged", "reduced", "increased", "secret_authority", "unknown"}, "reversibility": {"fully_reversible", "rollback_planned", "difficult_to_reverse", "irreversible", "unknown"}, "blast_radius": {"local", "repository", "user_population", "organization", "production", "unknown"}, "compatibility": {"none", "internal", "consumer_compatible", "consumer_breaking", "unknown"}, "verification_strength": {"strong", "partial", "insufficient", "unknown"}, "security_control_direction": {"not_applicable", "strengthened", "unchanged", "weakened", "unknown"}}
+RISK_REASONS = {"unknown_material_input", "conflicting_material_input", "stricter_applicable_signal", "classification_enforcement_change", "r4_action_authorization"}
 CI_PYTHON_RUN = re.compile(
     r"^\s*(?:-\s*)?run:\s*(['\"]?)(python(?:3(?:\.\d+)?)?\s+.+?)\1\s*$"
 )
@@ -165,6 +184,134 @@ def validate_json_artifacts(root: Path, validation: Validation) -> None:
             validation.fail(f"{path.relative_to(root)}: schema must be a JSON object")
         elif "$schema" in data and not isinstance(data["$schema"], str):
             validation.fail(f"{path.relative_to(root)}: $schema must be a string")
+
+
+def validate_risk_classification_schema(root: Path, validation: Validation) -> None:
+    """Validate the stable envelope of Issue #74's versioned risk contract."""
+    path = root / RISK_CLASSIFICATION_SCHEMA
+    if not path.is_file():
+        validation.fail(f"{RISK_CLASSIFICATION_SCHEMA}: missing required versioned risk classification schema")
+        return
+    data = read_json(path, validation)
+    if not isinstance(data, dict):
+        return
+    for field in RISK_SCHEMA_REQUIRED_FIELDS:
+        if field not in data:
+            validation.fail(f"{RISK_CLASSIFICATION_SCHEMA}: missing required schema field: {field}")
+    if data.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
+        validation.fail(f"{RISK_CLASSIFICATION_SCHEMA}: must declare JSON Schema Draft 2020-12")
+    if data.get("type") != "object" or data.get("additionalProperties") is not False:
+        validation.fail(f"{RISK_CLASSIFICATION_SCHEMA}: top-level record must be a closed object")
+    required = data.get("required")
+    if not isinstance(required, list) or set(required) != {"schema_version", "inputs", "decision"}:
+        validation.fail(f"{RISK_CLASSIFICATION_SCHEMA}: must require schema_version, inputs, and decision")
+
+
+def schema_errors(value: object, schema: dict[str, object], root: dict[str, object], location: str) -> list[str]:
+    """Small Draft 2020-12 subset needed by the checked-in risk schema."""
+    if "$ref" in schema:
+        target: object = root
+        for part in str(schema["$ref"]).removeprefix("#/").split("/"):
+            target = target[part]  # type: ignore[index]
+        return schema_errors(value, target, root, location)  # type: ignore[arg-type]
+    errors: list[str] = []
+    if "const" in schema and value != schema["const"]:
+        errors.append(f"{location}: must equal {schema['const']!r}")
+    if "enum" in schema and value not in schema["enum"]:  # type: ignore[operator]
+        errors.append(f"{location}: invalid enum value")
+    kind = schema.get("type")
+    valid_type = {"object": isinstance(value, dict), "array": isinstance(value, list), "string": isinstance(value, str), "boolean": isinstance(value, bool), "integer": isinstance(value, int) and not isinstance(value, bool)}
+    if kind in valid_type and not valid_type[kind]:
+        article = "an" if kind in {"integer", "object", "array"} else "a"
+        return [f"{location}: must be {article} {kind}"]
+    if isinstance(value, dict):
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+        for field in required:  # type: ignore[union-attr]
+            if field not in value:
+                errors.append(f"{location}: missing required field {field}")
+        if schema.get("additionalProperties") is False:
+            for field in value.keys() - properties.keys():  # type: ignore[union-attr]
+                errors.append(f"{location}: unknown field {field}")
+        for field, child in properties.items():  # type: ignore[union-attr]
+            if field in value:
+                errors.extend(schema_errors(value[field], child, root, f"{location}.{field}"))
+    if isinstance(value, list):
+        if len(value) < schema.get("minItems", 0):
+            errors.append(f"{location}: too few items")
+        if schema.get("uniqueItems") and len({json.dumps(item, sort_keys=True) for item in value}) != len(value):
+            errors.append(f"{location}: duplicate items")
+        if isinstance(schema.get("items"), dict):
+            for index, item in enumerate(value):
+                errors.extend(schema_errors(item, schema["items"], root, f"{location}[{index}]"))  # type: ignore[arg-type]
+    if isinstance(value, str) and len(value) < schema.get("minLength", 0):
+        errors.append(f"{location}: too short")
+    return errors
+
+
+def validate_risk_classification_fixtures(root: Path, validation: Validation) -> None:
+    """Validate checked-in representative records without implementing a classifier."""
+    directory = root / "evals" / "risk-classification"
+    schema = read_json(root / RISK_CLASSIFICATION_SCHEMA, validation)
+    if not isinstance(schema, dict):
+        return
+    for name in RISK_FIXTURES:
+        path = directory / name
+        if not path.is_file():
+            validation.fail(f"evals/risk-classification: missing required fixture: {name}")
+            continue
+        data = read_json(path, validation)
+        if not isinstance(data, dict):
+            continue
+        errors = schema_errors(data, schema, schema, "record")
+        for error in errors:
+            validation.fail(f"{path.relative_to(root)}: schema violation: {error}")
+        if errors:
+            continue
+        if set(data) != RISK_RECORD_FIELDS:
+            validation.fail(f"{path.relative_to(root)}: unknown top-level fields or missing record fields")
+            continue
+        if data.get("schema_version") != 1:
+            validation.fail(f"{path.relative_to(root)}: unsupported schema_version")
+        inputs = data.get("inputs")
+        decision = data.get("decision")
+        if not isinstance(inputs, dict) or set(inputs) != RISK_INPUT_FIELDS:
+            validation.fail(f"{path.relative_to(root)}: inputs must contain exactly the version-1 fields")
+            continue
+        if not isinstance(decision, dict) or set(decision) != RISK_DECISION_FIELDS:
+            validation.fail(f"{path.relative_to(root)}: decision must contain exactly the version-1 fields")
+            continue
+        if any(inputs[field] not in values for field, values in RISK_SCALAR_ENUMS.items()):
+            validation.fail(f"{path.relative_to(root)}: invalid input enum value")
+        if decision.get("risk_level") not in {"R0", "R1", "R2", "R3", "R4"} or not isinstance(decision.get("rationale"), str) or not decision["rationale"].strip():
+            validation.fail(f"{path.relative_to(root)}: decision requires a valid risk_level and non-blank rationale")
+        elif decision["risk_level"] != RISK_FIXTURE_LEVELS[name]:
+            validation.fail(f"{path.relative_to(root)}: expected representative risk level {RISK_FIXTURE_LEVELS[name]}")
+        reasons = decision.get("escalation_reasons")
+        human_required = decision.get("human_classification_required")
+        if decision.get("confidence") not in {"low", "medium", "high"}:
+            validation.fail(f"{path.relative_to(root)}: invalid confidence")
+        if not isinstance(reasons, list) or len(reasons) != len(set(reasons)) or any(reason not in RISK_REASONS for reason in reasons) or not isinstance(human_required, bool):
+            validation.fail(f"{path.relative_to(root)}: decision requires unique escalation_reasons and human_classification_required")
+            continue
+        required_reasons = set()
+        if inputs["material_unknowns"] or any(inputs[field] == "unknown" for field in RISK_SCALAR_ENUMS) or any("unknown" in inputs[field] for field in ("change_types", "affected_boundaries")):
+            required_reasons.add("unknown_material_input")
+        if inputs["material_conflicts"]:
+            required_reasons.add("conflicting_material_input")
+        if inputs["changes_classification_enforcement"]:
+            required_reasons.add("classification_enforcement_change")
+        if inputs["action_authorization_required"]:
+            required_reasons.add("r4_action_authorization")
+        if inputs["action_authorization_required"] and decision["risk_level"] != "R4":
+            validation.fail(f"{path.relative_to(root)}: action_authorization_required requires R4")
+        if decision["risk_level"] == "R4" and not human_required:
+            validation.fail(f"{path.relative_to(root)}: R4 requires human_classification_required")
+        if "r4_action_authorization" in reasons and not inputs["action_authorization_required"]:
+            validation.fail(f"{path.relative_to(root)}: r4_action_authorization is only valid when action_authorization_required is true")
+        for reason in required_reasons:
+            if not human_required or reason not in reasons:
+                validation.fail(f"{path.relative_to(root)}: {reason} requires human_classification_required")
 
 
 def validate_openai_marketplace(root: Path, validation: Validation) -> None:
@@ -444,6 +591,8 @@ def main() -> int:
     validation = Validation(errors=[])
     validate_skills(root, validation)
     validate_json_artifacts(root, validation)
+    validate_risk_classification_schema(root, validation)
+    validate_risk_classification_fixtures(root, validation)
     validate_openai_marketplace(root, validation)
     validate_openai_skills_link(root, validation)
     validate_docs(root, validation)
