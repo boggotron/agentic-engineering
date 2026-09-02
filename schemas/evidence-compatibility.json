@@ -1,0 +1,4 @@
+{
+  "schema": "evidence-compatibility-registry", "registry_version": "1.0.0",
+  "families": {"evidence-envelope": {"supported_majors": [1], "current_version": "1.0.0", "revision_algorithms": ["git-sha1", "git-sha256"], "compatibility": "same-major-with-explicit-registry-support", "unknown_top_level_fields": "reject", "extension_policy": "reverse-dns-namespace-preserve-unknown", "migration_policy": "immutable-derived-from-reference"}}
+}
