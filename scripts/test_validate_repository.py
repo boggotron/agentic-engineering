@@ -122,6 +122,7 @@ def create_repository(root: Path) -> None:
             "material_unknowns": [],
             "material_conflicts": [],
             "changes_classification_enforcement": False,
+            "security_control_direction": "not_applicable",
         },
         "decision": {
             "risk_level": "R0",
@@ -137,14 +138,19 @@ def create_repository(root: Path) -> None:
         "boundary-stricter-signal.json": "R3", "human-unknown-input.json": "R3",
         "human-conflicting-input.json": "R3", "human-policy-change.json": "R3",
         "human-r4-authorization.json": "R4",
+        "r4-security-control-weakening.json": "R4", "human-unknown-conflicting-inputs.json": "R3",
     }
     for name in (
         "r0-documentation.json", "r1-refactor.json", "r2-feature.json", "r3-sensitive-data.json",
         "r4-destructive-effect.json", "boundary-stricter-signal.json", "human-unknown-input.json",
         "human-conflicting-input.json", "human-policy-change.json", "human-r4-authorization.json",
+        "r4-security-control-weakening.json", "human-unknown-conflicting-inputs.json",
     ):
         fixture = json.loads(json.dumps(record))
         fixture["decision"]["risk_level"] = levels[name]
+        if levels[name] == "R4":
+            fixture["decision"]["human_classification_required"] = True
+            fixture["decision"]["escalation_reasons"] = ["r4_action_authorization"]
         (fixtures / name).write_text(json.dumps(fixture), encoding="utf-8")
     for name in NORMATIVE_SOURCES:
         (root / "docs" / name).write_text(
@@ -493,6 +499,11 @@ class ValidatorTests(unittest.TestCase):
             ("r0-documentation.json", lambda record: record.__setitem__("schema_version", 2), "unsupported schema_version"),
             ("r1-refactor.json", lambda record: record.__setitem__("unexpected", True), "unknown top-level fields"),
             ("human-unknown-input.json", lambda record: record["decision"].__setitem__("human_classification_required", False), "requires human_classification_required"),
+            ("r0-documentation.json", lambda record: record["decision"].__setitem__("confidence", "certain"), "invalid confidence"),
+            ("r1-refactor.json", lambda record: record["decision"].__setitem__("rationale", "   "), "non-blank rationale"),
+            ("r2-feature.json", lambda record: record["decision"].__setitem__("escalation_reasons", ["stricter_applicable_signal", "stricter_applicable_signal"]), "unique escalation_reasons"),
+            ("r3-sensitive-data.json", lambda record: record["inputs"].__setitem__("external_effects", "unknown"), "unknown_material_input requires human_classification_required"),
+            ("r4-destructive-effect.json", lambda record: record["decision"].__setitem__("human_classification_required", False), "r4_action_authorization requires human_classification_required"),
         )
         for name, mutate, error in cases:
             with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary:

@@ -24,7 +24,8 @@ controls, or authorize an action.
 Every record supplies change type, affected boundary, data and secret exposure,
 external effects, privilege, reversibility, blast radius, compatibility,
 verification strength, material unknowns, material conflicts, and whether the
-change alters classification or enforcement. The decision supplies one R0-R4
+change alters classification or enforcement. Security-control changes also state
+whether the control is strengthened, unchanged, weakened, or unknown. The decision supplies one R0-R4
 level, a non-empty rationale, evidence confidence, the human-classification
 flag, and applicable escalation reasons.
 
@@ -41,7 +42,10 @@ MUST NOT lower a selected level or waive an escalation.
 Do not infer a lower risk from an omitted material fact. A record requires
 human classification when material inputs are unknown, material inputs conflict,
 the proposed change alters risk-profile/classifier/enforcement policy, or an R4
-action would be authorized. Record the applicable reason in
+action would be authorized. Unknown is representable for every material input
+category and has the same conservative escalation effect as an explicit material
+unknown. A weakened security control is R4. Record every applicable reason (not
+only the first) in
 `decision.escalation_reasons`. A human classification is a decision record; it
 does not itself authorize an action. The applicable authority policy continues
 to determine whether authorization is mandatory before the action.

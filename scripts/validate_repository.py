@@ -31,18 +31,20 @@ RISK_SCHEMA_REQUIRED_FIELDS = ("$schema", "$id", "type", "additionalProperties",
 RISK_FIXTURES = (
     "r0-documentation.json", "r1-refactor.json", "r2-feature.json", "r3-sensitive-data.json",
     "r4-destructive-effect.json", "boundary-stricter-signal.json", "human-unknown-input.json",
-    "human-conflicting-input.json", "human-policy-change.json", "human-r4-authorization.json",
+    "human-conflicting-input.json", "human-policy-change.json", "human-r4-authorization.json", "r4-security-control-weakening.json", "human-unknown-conflicting-inputs.json",
 )
 RISK_FIXTURE_LEVELS = {
     "r0-documentation.json": "R0", "r1-refactor.json": "R1", "r2-feature.json": "R2",
     "r3-sensitive-data.json": "R3", "r4-destructive-effect.json": "R4",
     "boundary-stricter-signal.json": "R3", "human-unknown-input.json": "R3",
     "human-conflicting-input.json": "R3", "human-policy-change.json": "R3",
-    "human-r4-authorization.json": "R4",
+    "human-r4-authorization.json": "R4", "r4-security-control-weakening.json": "R4", "human-unknown-conflicting-inputs.json": "R3",
 }
 RISK_RECORD_FIELDS = {"schema_version", "inputs", "decision"}
-RISK_INPUT_FIELDS = {"change_types", "affected_boundaries", "data_and_secrets", "external_effects", "privilege", "reversibility", "blast_radius", "compatibility", "verification_strength", "material_unknowns", "material_conflicts", "changes_classification_enforcement"}
+RISK_INPUT_FIELDS = {"change_types", "affected_boundaries", "data_and_secrets", "external_effects", "privilege", "reversibility", "blast_radius", "compatibility", "verification_strength", "material_unknowns", "material_conflicts", "changes_classification_enforcement", "security_control_direction"}
 RISK_DECISION_FIELDS = {"risk_level", "rationale", "confidence", "human_classification_required", "escalation_reasons"}
+RISK_SCALAR_ENUMS = {"data_and_secrets": {"none", "internal", "personal_data", "sensitive_data", "secret", "unknown"}, "external_effects": {"none", "user_visible", "third_party", "production", "unknown"}, "privilege": {"none", "unchanged", "reduced", "increased", "secret_authority", "unknown"}, "reversibility": {"fully_reversible", "rollback_planned", "difficult_to_reverse", "irreversible", "unknown"}, "blast_radius": {"local", "repository", "user_population", "organization", "production", "unknown"}, "compatibility": {"none", "internal", "consumer_compatible", "consumer_breaking", "unknown"}, "verification_strength": {"strong", "partial", "insufficient", "unknown"}, "security_control_direction": {"not_applicable", "strengthened", "unchanged", "weakened", "unknown"}}
+RISK_REASONS = {"unknown_material_input", "conflicting_material_input", "stricter_applicable_signal", "classification_enforcement_change", "r4_action_authorization"}
 CI_PYTHON_RUN = re.compile(
     r"^\s*(?:-\s*)?run:\s*(['\"]?)(python(?:3(?:\.\d+)?)?\s+.+?)\1\s*$"
 )
@@ -229,26 +231,31 @@ def validate_risk_classification_fixtures(root: Path, validation: Validation) ->
         if not isinstance(decision, dict) or set(decision) != RISK_DECISION_FIELDS:
             validation.fail(f"{path.relative_to(root)}: decision must contain exactly the version-1 fields")
             continue
-        if decision.get("risk_level") not in {"R0", "R1", "R2", "R3", "R4"} or not isinstance(decision.get("rationale"), str) or not decision["rationale"]:
-            validation.fail(f"{path.relative_to(root)}: decision requires a valid risk_level and non-empty rationale")
+        if any(inputs[field] not in values for field, values in RISK_SCALAR_ENUMS.items()):
+            validation.fail(f"{path.relative_to(root)}: invalid input enum value")
+        if decision.get("risk_level") not in {"R0", "R1", "R2", "R3", "R4"} or not isinstance(decision.get("rationale"), str) or not decision["rationale"].strip():
+            validation.fail(f"{path.relative_to(root)}: decision requires a valid risk_level and non-blank rationale")
         elif decision["risk_level"] != RISK_FIXTURE_LEVELS[name]:
             validation.fail(f"{path.relative_to(root)}: expected representative risk level {RISK_FIXTURE_LEVELS[name]}")
         reasons = decision.get("escalation_reasons")
         human_required = decision.get("human_classification_required")
-        if not isinstance(reasons, list) or not isinstance(human_required, bool):
-            validation.fail(f"{path.relative_to(root)}: decision requires escalation reasons and human_classification_required")
+        if decision.get("confidence") not in {"low", "medium", "high"}:
+            validation.fail(f"{path.relative_to(root)}: invalid confidence")
+        if not isinstance(reasons, list) or len(reasons) != len(set(reasons)) or any(reason not in RISK_REASONS for reason in reasons) or not isinstance(human_required, bool):
+            validation.fail(f"{path.relative_to(root)}: decision requires unique escalation_reasons and human_classification_required")
             continue
-        required_reason = None
-        if inputs["material_unknowns"]:
-            required_reason = "unknown_material_input"
-        elif inputs["material_conflicts"]:
-            required_reason = "conflicting_material_input"
-        elif inputs["changes_classification_enforcement"]:
-            required_reason = "classification_enforcement_change"
-        elif "r4_action_authorization" in reasons:
-            required_reason = "r4_action_authorization"
-        if required_reason and (not human_required or required_reason not in reasons):
-            validation.fail(f"{path.relative_to(root)}: {required_reason} requires human_classification_required")
+        required_reasons = set()
+        if inputs["material_unknowns"] or any(inputs[field] == "unknown" for field in RISK_SCALAR_ENUMS):
+            required_reasons.add("unknown_material_input")
+        if inputs["material_conflicts"]:
+            required_reasons.add("conflicting_material_input")
+        if inputs["changes_classification_enforcement"]:
+            required_reasons.add("classification_enforcement_change")
+        if decision["risk_level"] == "R4" or inputs["security_control_direction"] == "weakened":
+            required_reasons.add("r4_action_authorization")
+        for reason in required_reasons:
+            if not human_required or reason not in reasons:
+                validation.fail(f"{path.relative_to(root)}: {reason} requires human_classification_required")
 
 
 def validate_openai_marketplace(root: Path, validation: Validation) -> None:
